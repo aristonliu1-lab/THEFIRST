@@ -1,0 +1,16 @@
+{
+  "name": "blockcraft-multiplayer",
+  "version": "1.0.0",
+  "description": "Multiplayer Minecraft-style game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

@@ -496,7 +496,7 @@ function showMsg(txt,ms=2000){const el=document.getElementById('msg');el.textCon
 // ══ MAIN LOOP ══
 const clock=new THREE.Clock();
 let lastCK='',placeCD=0,breakTimer=0,breakTarget=null,highestY=0,clickHeldTimer=0,sunAngle=0;
-let moveSendTimer=0;
+let moveSendTimer=0,animating=false;
  
 function animate(){
   requestAnimationFrame(animate);
@@ -588,18 +588,20 @@ function animate(){
  
 async function startGame(){
   const btn=document.getElementById('start-btn');
-  btn.textContent='Loading world...';
+  if(btn) btn.textContent='Loading world...';
+  const px=Math.floor(player.pos.x/CHUNK_SIZE), pz=Math.floor(player.pos.z/CHUNK_SIZE);
   const jobs=[];
-  for(let cx=-RENDER_DIST;cx<=RENDER_DIST;cx++)for(let cz=-RENDER_DIST;cz<=RENDER_DIST;cz++)jobs.push([cx,cz]);
+  for(let cx=px-RENDER_DIST;cx<=px+RENDER_DIST;cx++)
+    for(let cz=pz-RENDER_DIST;cz<=pz+RENDER_DIST;cz++)
+      jobs.push([cx,cz]);
   for(const[cx,cz]of jobs){getChunkData(cx,cz);await new Promise(r=>setTimeout(r,0));}
-  if(!player.pos.x&&!player.pos.z)findAndSetSpawn();
   for(const[cx,cz]of jobs){rebuildChunkMesh(cx,cz);await new Promise(r=>setTimeout(r,0));}
   document.getElementById('start-screen').style.display='none';
   document.getElementById('click-overlay').style.display='flex';
   renderHotbar();renderHealth();updatePlayerList();
   gameStarted=true;
   canvas.requestPointerLock&&canvas.requestPointerLock();
-  animate();
+  if(!animating){animating=true;animate();}
 }
  
 document.getElementById('start-btn').addEventListener('click',async()=>{

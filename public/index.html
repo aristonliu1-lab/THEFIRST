@@ -397,7 +397,7 @@ function updateMobs(dt){
     if(gb&&mob.vel.y<0){mob.pos.y=Math.ceil(mob.pos.y-0.1)+0.01;mob.vel.y=0;mob.onGround=true;}else mob.onGround=false;
     if(isMoving&&mob.onGround){const fb=getBlock(Math.floor(mob.pos.x+Math.cos(mob.wanderDir)*0.5),Math.floor(mob.pos.y),Math.floor(mob.pos.z+Math.sin(mob.wanderDir)*0.5));if(fb&&fb!==0&&fb!==13)mob.vel.y=5.5;}
     if(mob.pos.y<-5){mob.pos.y=groundHeightAt(mob.pos.x,mob.pos.z)+1;mob.vel.y=0;}
-    if(mob.pos.distanceTo(mob.homePos)>80&&mob.state===AI_STATE.WANDER){const hdx=mob.homePos.x-mob.pos.x,hdz=mob.homePos.z-mob.pos.z;mob.wanderDir=Math.atan2(hdz,hdx);}
+    if(mob.pos.distanceTo(mob.homePos)>120&&mob.state===AI_STATE.WANDER){const hdx=mob.homePos.x-mob.pos.x,hdz=mob.homePos.z-mob.pos.z;mob.wanderDir=Math.atan2(hdz,hdx);}
     mob.group.position.set(mob.pos.x,mob.pos.y+def.body.h/2+def.body.h*0.55,mob.pos.z);
     if(isMoving){let diff=mob.wanderDir+Math.PI/2-mob.group.rotation.y;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;mob.group.rotation.y+=diff*Math.min(dt*8,1);}
     mob.group.userData.legTimer+=dt*(isMoving?speed:0.3);
@@ -639,7 +639,7 @@ function showMsg(txt,ms=2000){const el=document.getElementById('msg');el.textCon
 // ══ MAIN LOOP ══
 const clock=new THREE.Clock();
 let lastCK='',placeCD=0,breakTimer=0,breakTarget=null,highestY=0,clickHeldTimer=0,sunAngle=0;
-let moveSendTimer=0,animating=false;
+let moveSendTimer=0,animating=false,mobSpawnTimer=3;
  
 function animate(){
   requestAnimationFrame(animate);
@@ -718,6 +718,27 @@ function animate(){
  
   // Update animals
   updateMobs(dt);
+ 
+  // Spawn animals around player dynamically
+  mobSpawnTimer-=dt;
+  if(mobSpawnTimer<=0){
+    mobSpawnTimer=3+Math.random()*2;
+    // Count mobs near player
+    const nearCount=mobs.filter(m=>!m.dead&&m.pos.distanceTo(player.pos)<60).length;
+    if(nearCount<40){
+      const types=Object.keys(MOB_TYPES);
+      const type=types[Math.floor(Math.random()*types.length)];
+      const angle=Math.random()*Math.PI*2;
+      const dist=25+Math.random()*30;
+      spawnMobAt(type,player.pos.x+Math.cos(angle)*dist,player.pos.z+Math.sin(angle)*dist);
+    }
+    // Remove mobs very far from player to save memory
+    for(let i=mobs.length-1;i>=0;i--){
+      if(mobs[i].pos.distanceTo(player.pos)>120){
+        scene.remove(mobs[i].group);mobs.splice(i,1);
+      }
+    }
+  }
  
   // Particles
   for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.userData.life-=dt*2;p.userData.vel.y-=22*dt;p.position.addScaledVector(p.userData.vel,dt);p.material.opacity=p.userData.life;p.material.transparent=true;if(p.userData.life<=0){scene.remove(p);p.geometry.dispose();particles.splice(i,1);}}

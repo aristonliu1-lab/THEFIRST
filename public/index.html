@@ -248,7 +248,7 @@ let toastTimer=null;
 function showPickup(n,t){const el=document.getElementById('pickup-toast');el.textContent=`+${n} ${BLOCK_ICONS[t]||''} ${BLOCK_NAMES[t]||'Item'}`;el.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.display='none',1600);}
  
 // ══ WORLD ══
-const CHUNK_SIZE=16,WORLD_HEIGHT=32,RENDER_DIST=3;
+const CHUNK_SIZE=16,WORLD_HEIGHT=32,RENDER_DIST=5;
 function noise2D(x,z,seed=0){let v=0,amp=1,freq=1,max=0,s=seed*7.3;for(let o=0;o<6;o++){v+=Math.sin(x*freq*0.07+s+Math.cos(z*freq*0.09+s))*Math.cos(z*freq*0.07+s+Math.sin(x*freq*0.11+s))*amp;max+=amp;amp*=0.5;freq*=2.1;}return v/max;}
 function noise3D(x,y,z,seed=42){return Math.sin(x*0.3+seed)*Math.cos(y*0.4+seed+1)*Math.sin(z*0.35+seed+2)*0.5+0.5;}
 function getBiome(wx,wz){const t=noise2D(wx,wz,100),h=noise2D(wx,wz,200);if(t>0.35)return'desert';if(t<-0.35)return'snow';if(h>0.3&&t>0.05)return'jungle';if(noise2D(wx,wz,300)>0.4)return'mountain';return'plains';}
@@ -276,8 +276,8 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.1;
 renderer.setClearColor(0x87ceeb);
 const scene=new THREE.Scene();
-scene.fog=new THREE.FogExp2(0x87ceeb,0.012);
-const camera=new THREE.PerspectiveCamera(72,window.innerWidth/window.innerHeight,0.05,200);
+scene.fog=new THREE.Fog(0x87ceeb,60,160);
+const camera=new THREE.PerspectiveCamera(72,window.innerWidth/window.innerHeight,0.05,300);
 const sun=new THREE.DirectionalLight(0xfff4e0,1.4);
 sun.position.set(80,120,60);sun.castShadow=true;sun.shadow.mapSize.width=1024;sun.shadow.mapSize.height=1024;sun.shadow.camera.left=-80;sun.shadow.camera.right=80;sun.shadow.camera.top=80;sun.shadow.camera.bottom=-80;sun.shadow.bias=-0.001;scene.add(sun);
 scene.add(new THREE.HemisphereLight(0x87ceeb,0x3d5e1a,0.7));
@@ -662,7 +662,9 @@ function animate(){
   const sc=skyColors[biome]||skyColors.plains;
   skyMat.map=makeSkyTexture(sc[0],sc[1]);skyMat.map.needsUpdate=true;
   const fogColors={plains:0x87ceeb,mountain:0x6aabcc,desert:0xe8c870,jungle:0x50a050,snow:0xb0d0e8};
-  scene.fog.color.setHex(fogColors[biome]||0x87ceeb);renderer.setClearColor(fogColors[biome]||0x87ceeb);
+  scene.fog.color.setHex(fogColors[biome]||0x87ceeb);
+  scene.fog.near=60;scene.fog.far=160;
+  renderer.setClearColor(fogColors[biome]||0x87ceeb);
  
   if(!uiOpen&&!chatOpen){
     const spd=keys['ShiftLeft']||keys['ShiftRight']?9:5.5;
@@ -784,4 +786,4 @@ document.getElementById('start-btn').addEventListener('click',async()=>{
 window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
 </script>
 </body>
-</html
+</html>

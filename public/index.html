@@ -432,6 +432,23 @@ function tryHitMob(){
   return false;
 }
  
+function tryHitPlayer(){
+  if(!myId)return false;
+  const rayDir=new THREE.Vector3(0,0,-1);rayDir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));
+  for(const[id,op]of otherPlayers){
+    const d=op.mesh.position.clone().add(new THREE.Vector3(0,0.9,0)).sub(player.pos);
+    const proj=d.dot(rayDir);if(proj<0||proj>4.5)continue;
+    const perp=d.clone().sub(rayDir.clone().multiplyScalar(proj));
+    if(perp.length()<0.7){
+      // Send hit to server
+      wsSend({type:'hitPlayer',targetId:id,damage:1});
+      showMsg(`⚔️ Hit ${op.name}!`,600);
+      return true;
+    }
+  }
+  return false;
+}
+ 
 // ══ OTHER PLAYERS ══
 const otherPlayers=new Map(); // id -> {mesh, nameTag, x,y,z,yaw,name}
 const PLAYER_COLORS=[0x4a90d9,0xe05c5c,0x5cb85c,0xf0ad4e,0x9b59b6,0x1abc9c,0xe74c3c,0x3498db];
@@ -463,11 +480,11 @@ function addOtherPlayer(p){
   const mesh=makePlayerMesh(p.id);
   mesh.position.set(p.x,p.y-1.7,p.z);
   scene.add(mesh);
-  // Name tag (DOM element)
   const tag=document.createElement('div');
-  tag.className='nametag';tag.textContent=p.name||`Player${p.id}`;
+  tag.className='nametag';
+  tag.innerHTML=`<span class="pname">${p.name||`Player${p.id}`}</span><br><span class="php" style="color:#f87171">❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️</span>`;
   document.body.appendChild(tag);
-  otherPlayers.set(p.id,{mesh,tag,x:p.x,y:p.y,z:p.z,yaw:p.yaw||0,name:p.name||`Player${p.id}`});
+  otherPlayers.set(p.id,{mesh,tag,x:p.x,y:p.y,z:p.z,yaw:p.yaw||0,name:p.name||`Player${p.id}`,hp:10,hitTimer:0});
 }
 function removeOtherPlayer(id){
   const op=otherPlayers.get(id);
@@ -481,16 +498,30 @@ function updateOtherPlayerPos(id,x,y,z,yaw){
   op.mesh.position.set(x,y-1.7,z);
   op.mesh.rotation.y=yaw||0;
 }
+function updateOtherPlayerHP(id,hp){
+  const op=otherPlayers.get(id);
+  if(!op)return;
+  op.hp=hp;
+  const hearts='❤️'.repeat(Math.max(0,hp))+'🖤'.repeat(Math.max(0,10-hp));
+  const phpEl=op.tag.querySelector('.php');
+  if(phpEl)phpEl.textContent=hearts;
+  // Flash red
+  op.hitTimer=0.3;
+  op.mesh.children.forEach(c=>{if(c.material&&c.material.emissive)c.material.emissive.setHex(0xaa0000);});
+  setTimeout(()=>{if(op.mesh)op.mesh.children.forEach(c=>{if(c.material&&c.material.emissive)c.material.emissive.setHex(0x000000);});},300);
+}
 function updateNameTags(){
   for(const[id,op]of otherPlayers){
-    // Project 3D position to screen
-    const pos=new THREE.Vector3(op.x,op.y+0.3,op.z);
+    const pos=new THREE.Vector3(op.x,op.y+0.5,op.z);
     pos.project(camera);
     if(pos.z>1){op.tag.style.display='none';continue;}
     const sx=(pos.x*0.5+0.5)*window.innerWidth;
     const sy=(-pos.y*0.5+0.5)*window.innerHeight;
     op.tag.style.display='block';
     op.tag.style.left=sx+'px';op.tag.style.top=sy+'px';
+    // Update name in case it changed
+    const pnEl=op.tag.querySelector('.pname');
+    if(pnEl)pnEl.textContent=op.name;
   }
 }
 function updatePlayerList(){
@@ -542,6 +573,37 @@ function connectWS(url,playerName){
         break;
       case'chat':
         addChatMsg(msg.name,msg.text,'#fff');
+        break;
+      case'playerHit':
+        // Someone else got hit — update their HP display
+        updateOtherPlayerHP(msg.id,msg.hp);
+        break;
+      case'youWereHit':
+        // We got hit by another player
+        takeDamage(msg.damage);
+        {const attacker=otherPlayers.get(msg.attackerId);
+        addChatMsg('⚔️',`${attacker?attacker.name:'Someone'} hit you!`,'#f87171');}
+        break;
+      case'playerDied':
+        {const op=otherPlayers.get(msg.id);
+        addChatMsg('💀',`${op?op.name:'A player'} was killed by ${msg.killerName||'someone'}!`,'#fbbf24');
+        if(op){updateOtherPlayerHP(msg.id,0);}
+        }
+        break;
+      case'playerRespawn':
+        {const op=otherPlayers.get(msg.id);
+        if(op){op.hp=10;const phpEl=op.tag.querySelector('.php');if(phpEl)phpEl.textContent='❤️'.repeat(10);}
+        }
+        break;
+      case'forceRespawn':
+        // We died and server is respawning us
+        health=MAX_HP;renderHealth();
+        player.pos.set(msg.spawn.x,msg.spawn.y,msg.spawn.z);
+        player.vel.set(0,0,0);
+        document.getElementById('death-screen').style.display='none';
+        gameStarted=true;
+        showMsg('💀 You were killed! Respawning...',2000);
+        addChatMsg('💀','You respawned','#86efac');
         break;
     }
   };
@@ -706,7 +768,7 @@ function animate(){
         setBlock(rc.x,rc.y,rc.z,0);breakTarget=null;breakTimer=0;bEl.style.display='none';
       }
     } else {bEl.style.display='none';breakTarget=null;breakTimer=0;}
-  } else {if(clickHeldTimer>0&&clickHeldTimer<0.2)tryHitMob();clickHeldTimer=0;bEl.style.display='none';breakTarget=null;breakTimer=0;}
+  } else {if(clickHeldTimer>0&&clickHeldTimer<0.2){if(!tryHitPlayer())tryHitMob();}clickHeldTimer=0;bEl.style.display='none';breakTarget=null;breakTimer=0;}
  
   if(mouseButtons[2]&&rc.hit&&placeCD<=0&&!uiOpen&&!chatOpen){
     const slot=hotbar[selectedSlot];

@@ -2,28 +2,28 @@ const WebSocket = require('ws');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-
+ 
 const PORT = process.env.PORT || 3000;
-
+ 
 const server = http.createServer((req, res) => {
-  const filePath = path.join(__dirname, 'public', 'index.html');
+  const filePath = path.join(__dirname, 'index.html');
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(data);
   });
 });
-
+ 
 const wss = new WebSocket.Server({ server });
-
+ 
 // ── World state ──
 const CHUNK_SIZE = 16, WORLD_HEIGHT = 32;
 const chunks = new Map();   // key -> Uint8Array
 const blockChanges = new Map(); // "x,y,z" -> blockId  (authoritative overrides)
 const players = new Map();  // ws -> player object
-
+ 
 let nextId = 1;
-
+ 
 // ── Noise helpers (same as client) ──
 function noise2D(x, z, seed = 0) {
   let v = 0, amp = 1, freq = 1, max = 0, s = seed * 7.3;
@@ -55,9 +55,9 @@ function getHeight(wx, wz) {
     default: return Math.floor(base + n * 7 + 2);
   }
 }
-
+ 
 function chunkKey(cx, cz) { return `${cx},${cz}`; }
-
+ 
 function generateChunk(cx, cz) {
   const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * WORLD_HEIGHT);
   const idx = (x, y, z) => x + z * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE;
@@ -93,7 +93,7 @@ function generateChunk(cx, cz) {
   }
   return data;
 }
-
+ 
 function placeTree(data, idx, lx, sy, lz, type) {
   const wood = type === 'jungle' ? 14 : type === 'pine' ? 20 : 7;
   const leaf = type === 'jungle' ? 15 : type === 'pine' ? 21 : 8;
@@ -111,13 +111,13 @@ function placeTree(data, idx, lx, sy, lz, type) {
       data[idx(nx, ny, nz)] = leaf;
   }
 }
-
+ 
 function getChunkData(cx, cz) {
   const k = chunkKey(cx, cz);
   if (!chunks.has(k)) chunks.set(k, generateChunk(cx, cz));
   return chunks.get(k);
 }
-
+ 
 function getBlock(wx, wy, wz) {
   // Check authoritative block changes first
   const bk = `${wx},${wy},${wz}`;
@@ -127,7 +127,7 @@ function getBlock(wx, wy, wz) {
   const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE, lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
   return getChunkData(cx, cz)[lx + lz * CHUNK_SIZE + wy * CHUNK_SIZE * CHUNK_SIZE];
 }
-
+ 
 function findSpawn() {
   for (let x = -5; x <= 5; x++) for (let z = -5; z <= 5; z++)
     for (let y = WORLD_HEIGHT - 1; y > 0; y--) {
@@ -136,23 +136,23 @@ function findSpawn() {
     }
   return { x: 0.5, y: 18, z: 0.5 };
 }
-
+ 
 function broadcast(data, exclude = null) {
   const msg = JSON.stringify(data);
   for (const [ws] of players) {
     if (ws !== exclude && ws.readyState === WebSocket.OPEN) ws.send(msg);
   }
 }
-
+ 
 function send(ws, data) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
 }
-
+ 
 // Pre-generate spawn chunks
 console.log('Generating spawn chunks...');
 for (let cx = -3; cx <= 3; cx++) for (let cz = -3; cz <= 3; cz++) getChunkData(cx, cz);
 console.log('Done. Server ready.');
-
+ 
 wss.on('connection', (ws) => {
   const id = nextId++;
   const spawn = findSpawn();
@@ -164,10 +164,10 @@ wss.on('connection', (ws) => {
   };
   players.set(ws, player);
   console.log(`Player ${id} connected. Total: ${players.size}`);
-
+ 
   // Send this player their ID and all current players
   send(ws, { type: 'welcome', id, spawn, players: [...players.values()].filter(p => p.id !== id) });
-
+ 
   // Send all block changes so far
   if (blockChanges.size > 0) {
     const changes = [];
@@ -177,14 +177,20 @@ wss.on('connection', (ws) => {
     }
     send(ws, { type: 'blockBatch', changes });
   }
-
-  // Tell others about new player
-  broadcast({ type: 'playerJoin', player }, ws);
-
+ 
+  // Tell others about new player (with spawn position)
+  broadcast({ type: 'playerJoin', player: { id: player.id, name: player.name, x: player.x, y: player.y, z: player.z, yaw: 0, hp: 10 } }, ws);
+ 
+  // Send new player the current positions of all existing players
+  for (const [ows, op] of players) {
+    if (ows === ws) continue;
+    send(ws, { type: 'playerMove', id: op.id, x: op.x, y: op.y, z: op.z, yaw: op.yaw||0, pitch: op.pitch||0 });
+  }
+ 
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
-
+ 
     switch (msg.type) {
       case 'move': {
         const p = players.get(ws);
@@ -207,6 +213,32 @@ wss.on('connection', (ws) => {
         broadcast({ type: 'blockSet', x, y, z, block });
         break;
       }
+      case 'hitPlayer': {
+        const attacker = players.get(ws);
+        if (!attacker) return;
+        const targetWs = [...players.entries()].find(([w,p])=>p.id===msg.targetId)?.[0];
+        if (!targetWs) return;
+        const target = players.get(targetWs);
+        if (!target) return;
+        target.health = Math.max(0, target.health - (msg.damage||1));
+        // Tell everyone the target's new HP
+        broadcast({ type: 'playerHit', id: target.id, hp: target.health });
+        // Tell the target they were hit
+        send(targetWs, { type: 'youWereHit', damage: msg.damage||1, attackerId: attacker.id });
+        if (target.health <= 0) {
+          // Player died
+          broadcast({ type: 'playerDied', id: target.id, killerName: attacker.name });
+          // Respawn after 3 seconds
+          const spawn = findSpawn();
+          target.health = 10;
+          target.x = spawn.x; target.y = spawn.y; target.z = spawn.z;
+          setTimeout(() => {
+            send(targetWs, { type: 'forceRespawn', spawn });
+            broadcast({ type: 'playerRespawn', id: target.id }, targetWs);
+          }, 3000);
+        }
+        break;
+      }
       case 'chat': {
         const p = players.get(ws);
         if (!p) return;
@@ -223,7 +255,7 @@ wss.on('connection', (ws) => {
       }
     }
   });
-
+ 
   ws.on('close', () => {
     const p = players.get(ws);
     if (p) {
@@ -232,8 +264,8 @@ wss.on('connection', (ws) => {
     }
     players.delete(ws);
   });
-
+ 
   ws.on('error', () => players.delete(ws));
 });
-
+ 
 server.listen(PORT, () => console.log(`BlockCraft server running on port ${PORT}`));

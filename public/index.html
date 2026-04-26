@@ -120,6 +120,7 @@ body{background:#000;overflow:hidden;font-family:'Courier New',monospace}
   <div id="hotbar"></div>
 </div>
 <div id="stats"></div>
+<div id="biome-label"></div>
 <div id="player-list"><h4>👥 PLAYERS</h4><div id="player-list-body"></div></div>
 <div id="break-progress"><div id="break-bar"></div></div>
 <div id="chat-wrap">
@@ -580,8 +581,8 @@ function animate(){
   updateNameTags();
  
   const biomeNames={plains:'🌾 Plains',mountain:'⛰️ Mountains',desert:'🏜️ Desert',jungle:'🌴 Jungle',snow:'❄️ Snow'};
-  document.getElementById('biome-label').style.display='none'; // hidden, player list takes that spot
-  document.getElementById('stats').innerHTML=`X:${player.pos.x.toFixed(1)} Y:${player.pos.y.toFixed(1)} Z:${player.pos.z.toFixed(1)}<br>${rc.hit?(BLOCK_NAMES[rc.block]||'Block'):'—'} | ${biomeNames[biome]||biome} | T=Chat`;
+  const bl=document.getElementById('biome-label');if(bl)bl.style.display='none';
+  const st=document.getElementById('stats');if(st)st.innerHTML=`X:${player.pos.x.toFixed(1)} Y:${player.pos.y.toFixed(1)} Z:${player.pos.z.toFixed(1)}<br>${rc.hit?(BLOCK_NAMES[rc.block]||'Block'):'—'} | ${biomeNames[biome]||biome} | T=Chat`;
  
   renderer.render(scene,camera);
 }

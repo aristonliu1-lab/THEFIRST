@@ -280,7 +280,6 @@ scene.fog=new THREE.Fog(0x87ceeb,60,160);
 const camera=new THREE.PerspectiveCamera(72,window.innerWidth/window.innerHeight,0.05,300);
 const sun=new THREE.DirectionalLight(0xfff4e0,1.4);
 sun.position.set(80,120,60);sun.castShadow=true;sun.shadow.mapSize.width=1024;sun.shadow.mapSize.height=1024;sun.shadow.camera.left=-80;sun.shadow.camera.right=80;sun.shadow.camera.top=80;sun.shadow.camera.bottom=-80;sun.shadow.bias=-0.001;scene.add(sun);
-scene.add(new THREE.HemisphereLight(0x87ceeb,0x3d5e1a,0.7));
 scene.add(new THREE.AmbientLight(0x6080a0,0.35));
 function makeSkyTexture(top,bot){const c=document.createElement('canvas');c.width=1;c.height=256;const ctx=c.getContext('2d');const g=ctx.createLinearGradient(0,0,0,256);g.addColorStop(0,top);g.addColorStop(1,bot);ctx.fillStyle=g;ctx.fillRect(0,0,1,256);return new THREE.CanvasTexture(c);}
 const skyGeo=new THREE.SphereGeometry(180,8,8);
@@ -289,6 +288,22 @@ scene.add(new THREE.Mesh(skyGeo,skyMat));
 const cloudGroup=new THREE.Group();
 for(let i=0;i<14;i++){const cg=new THREE.Mesh(new THREE.BoxGeometry(8+Math.random()*12,2+Math.random()*2,6+Math.random()*8),new THREE.MeshLambertMaterial({color:0xffffff,transparent:true,opacity:0.88}));cg.position.set((Math.random()-0.5)*160,28+Math.random()*12,(Math.random()-0.5)*160);cloudGroup.add(cg);}
 scene.add(cloudGroup);
+ 
+// ── Moon ──
+const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(3,8,8),new THREE.MeshBasicMaterial({color:0xddddcc}));
+scene.add(moonMesh);
+// ── Stars ──
+const starGeo=new THREE.BufferGeometry();
+const starVerts=[];for(let i=0;i<1200;i++){const th=Math.random()*Math.PI*2,ph=Math.random()*Math.PI;const r=170;starVerts.push(r*Math.sin(ph)*Math.cos(th),r*Math.cos(ph),r*Math.sin(ph)*Math.sin(th));}
+starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starVerts,3));
+const starField=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:0.8,transparent:true,opacity:0}));
+scene.add(starField);
+// ── Night ambient ──
+const moonLight=new THREE.DirectionalLight(0x3344aa,0);scene.add(moonLight);
+const hemisphereLight=new THREE.HemisphereLight(0x87ceeb,0x3d5e1a,0.7);scene.add(hemisphereLight);
+// Day/night time: 0=noon, 0.5=midnight (in 0..1 cycle)
+let dayTime=0; // starts at dawn
+const DAY_DURATION=300; // seconds for full day/night cycle
  
 // ══ SMART ANIMAL AI ══
 const AI_STATE={IDLE:'idle',GRAZE:'graze',WANDER:'wander',FOLLOW:'follow',FLEE:'flee',PANIC:'panic',CURIOUS:'curious'};
@@ -443,6 +458,242 @@ function tryHitPlayer(){
       // Send hit to server
       wsSend({type:'hitPlayer',targetId:id,damage:1});
       showMsg(`⚔️ Hit ${op.name}!`,600);
+      return true;
+    }
+  }
+  return false;
+}
+ 
+// ══ HOSTILE MOBS ══
+const hostileMobs=[];
+const arrows=[];
+let hostileSpawnTimer=5;
+ 
+const HOSTILE_TYPES={
+  zombie:{name:'🧟 Zombie',color:0x4a8c4a,eyeColor:0xff2200,hp:10,speed:2.2,damage:1,attackRange:1.5,attackCD:1.2,detectionRange:18,drops:[]},
+  skeleton:{name:'💀 Skeleton',color:0xddddcc,eyeColor:0x000000,hp:8,speed:2.8,damage:1,attackRange:16,attackCD:2.0,detectionRange:20,drops:[]},
+  creeper:{name:'💚 Creeper',color:0x3a9a3a,eyeColor:0x111111,hp:6,speed:3.0,damage:0,attackRange:2.5,attackCD:999,detectionRange:15,drops:[]},
+};
+ 
+function makeHostileMesh(type){
+  const def=HOSTILE_TYPES[type];
+  const g=new THREE.Group();
+  const mat=(c)=>new THREE.MeshLambertMaterial({color:c});
+  if(type==='zombie'||type==='skeleton'){
+    // Body
+    const body=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.75,0.3),mat(def.color));body.position.y=0.85;g.add(body);
+    // Head
+    const head=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5),mat(def.color));head.position.y=1.55;g.add(head);
+    // Eyes
+    [-0.12,0.12].forEach(ex=>{const e=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.05),mat(def.eyeColor));e.position.set(ex,1.57,0.26);g.add(e);});
+    // Arms (zombie: outstretched)
+    const armAngle=type==='zombie'?-Math.PI/2:0;
+    [-0.45,0.45].forEach(ax=>{const arm=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.6,0.22),mat(def.color));arm.position.set(ax,0.85,type==='zombie'?0.3:0);arm.rotation.x=armAngle;g.add(arm);});
+    // Legs
+    [-0.15,0.15].forEach(lx=>{const leg=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.6,0.22),mat(def.color));leg.position.set(lx,0.3,0);g.add(leg);});
+    // Skeleton is thinner/bonier look
+    if(type==='skeleton'){const spine=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.75,0.1),mat(0xccccbb));spine.position.y=0.85;g.add(spine);}
+  } else if(type==='creeper'){
+    // Creeper body (tall thin)
+    const body=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.75,0.4),mat(def.color));body.position.y=0.9;g.add(body);
+    const head=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.55,0.55),mat(def.color));head.position.y=1.65;g.add(head);
+    // Creeper face markings
+    const faceM=mat(0x111111);
+    [[-0.12,0.12],[-0.12,0.12]].forEach((_,i)=>{const f=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.1,0.05),faceM);f.position.set(i===0?-0.12:0.12,1.68,0.29);g.add(f);});
+    const mouth=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.18,0.05),faceM);mouth.position.set(0,1.52,0.29);g.add(mouth);
+    // 4 stubby legs
+    [[-0.15,0.15],[-0.15,0.15]].forEach((xs,zi)=>xs.forEach(x=>{const leg=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.4,0.2),mat(def.color));leg.position.set(x,0.2,(zi-0.5)*0.25);g.add(leg);}));
+  }
+  g.castShadow=true;
+  g.userData.legTimer=Math.random()*Math.PI*2;
+  return g;
+}
+ 
+function spawnHostileMob(type){
+  const angle=Math.random()*Math.PI*2, dist=15+Math.random()*25;
+  const mx=player.pos.x+Math.cos(angle)*dist, mz=player.pos.z+Math.sin(angle)*dist;
+  let my=WORLD_HEIGHT-1;
+  for(;my>0;my--){const b=getBlock(Math.floor(mx),my,Math.floor(mz));if(b&&b!==13){my+=1;break;}}
+  if(my<=0||my>=WORLD_HEIGHT-2)return;
+  const def=HOSTILE_TYPES[type];
+  const mesh=makeHostileMesh(type);
+  mesh.position.set(mx,my+0.6,mz);
+  scene.add(mesh);
+  hostileMobs.push({mesh,type,def,hp:def.hp,maxHp:def.hp,pos:new THREE.Vector3(mx,my,mz),vel:new THREE.Vector3(),onGround:false,dead:false,attackTimer:0,hitTimer:0,creeperFuseTimer:-1,creeperHissing:false,wanderDir:Math.random()*Math.PI*2,wanderTimer:2});
+}
+ 
+function isNight(){return dayTime>0.45&&dayTime<0.95;}
+ 
+function updateHostileMobs(dt){
+  for(let i=hostileMobs.length-1;i>=0;i--){
+    const mob=hostileMobs[i];
+    if(mob.dead)continue;
+    const def=mob.def;
+    const dx=player.pos.x-mob.pos.x, dz=player.pos.z-mob.pos.z;
+    const distToPlayer=Math.sqrt(dx*dx+dz*dz);
+    const detected=distToPlayer<def.detectionRange;
+ 
+    // Gravity
+    mob.vel.y-=20*dt;
+    let moveX=0,moveZ=0;
+ 
+    if(type==='creeper'||mob.type==='creeper'){
+      if(detected){
+        const dir=Math.atan2(dz,dx);
+        moveX=Math.cos(dir)*def.speed*dt;
+        moveZ=Math.sin(dir)*def.speed*dt;
+        mob.wanderDir=dir;
+        if(distToPlayer<def.attackRange){
+          // Start fuse
+          if(mob.creeperFuseTimer<0){mob.creeperFuseTimer=1.5;mob.creeperHissing=true;showMsg('🔥 Creeper is hissing!',1000);}
+          mob.creeperFuseTimer-=dt;
+          // Flash green/white
+          mob.mesh.children.forEach(c=>{if(c.material)c.material.color.setHex(Math.sin(mob.creeperFuseTimer*20)>0?0xffffff:0x3a9a3a);});
+          if(mob.creeperFuseTimer<=0){
+            // EXPLODE
+            spawnParticles(mob.pos.x,mob.pos.y,mob.pos.z,0x555533);
+            spawnParticles(mob.pos.x,mob.pos.y+1,mob.pos.z,0x888844);
+            if(distToPlayer<5)takeDamage(Math.max(1,Math.floor((5-distToPlayer)*2)));
+            showMsg('💥 BOOM!',1500);
+            // Destroy nearby blocks
+            for(let bx=-2;bx<=2;bx++)for(let by=-1;by<=2;by++)for(let bz=-2;bz<=2;bz++){
+              if(Math.sqrt(bx*bx+by*by+bz*bz)<2.2){
+                const wx=Math.floor(mob.pos.x)+bx,wy=Math.floor(mob.pos.y)+by,wz=Math.floor(mob.pos.z)+bz;
+                if(getBlock(wx,wy,wz)&&getBlock(wx,wy,wz)!==13)setBlock(wx,wy,wz,0);
+              }
+            }
+            scene.remove(mob.mesh);mob.dead=true;hostileMobs.splice(i,1);continue;
+          }
+        } else {
+          mob.creeperFuseTimer=-1;mob.creeperHissing=false;
+          mob.mesh.children.forEach(c=>{if(c.material)c.material.color.setHex(0x3a9a3a);});
+        }
+      }
+    } else if(mob.type==='zombie'){
+      if(detected){
+        const dir=Math.atan2(dz,dx);
+        moveX=Math.cos(dir)*def.speed*dt;
+        moveZ=Math.sin(dir)*def.speed*dt;
+        mob.wanderDir=dir;
+        // Melee attack
+        mob.attackTimer-=dt;
+        if(distToPlayer<def.attackRange&&mob.attackTimer<=0){
+          takeDamage(def.damage);mob.attackTimer=def.attackCD;
+        }
+      } else {
+        // Wander
+        mob.wanderTimer-=dt;
+        if(mob.wanderTimer<=0){mob.wanderDir+=( Math.random()-0.5)*1.5;mob.wanderTimer=2+Math.random()*3;}
+        moveX=Math.cos(mob.wanderDir)*def.speed*0.4*dt;
+        moveZ=Math.sin(mob.wanderDir)*def.speed*0.4*dt;
+      }
+    } else if(mob.type==='skeleton'){
+      if(detected){
+        // Keep distance, strafe
+        const dir=Math.atan2(dz,dx);
+        if(distToPlayer<8){// Back away
+          moveX=-Math.cos(dir)*def.speed*0.6*dt;
+          moveZ=-Math.sin(dir)*def.speed*0.6*dt;
+        } else if(distToPlayer>12){// Close in slowly
+          moveX=Math.cos(dir)*def.speed*0.4*dt;
+          moveZ=Math.sin(dir)*def.speed*0.4*dt;
+        } else {// Strafe sideways
+          moveX=Math.cos(dir+Math.PI/2)*def.speed*0.5*dt;
+          moveZ=Math.sin(dir+Math.PI/2)*def.speed*0.5*dt;
+        }
+        mob.wanderDir=dir;
+        // Shoot arrow
+        mob.attackTimer-=dt;
+        if(mob.attackTimer<=0&&distToPlayer<def.attackRange){
+          mob.attackTimer=def.attackCD;
+          // Fire arrow
+          const arrowDir=new THREE.Vector3(dx,player.pos.y-mob.pos.y-0.5,dz).normalize();
+          const arrowMesh=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.5),new THREE.MeshLambertMaterial({color:0x8b6914}));
+          arrowMesh.position.set(mob.pos.x,mob.pos.y+1.5,mob.pos.z);
+          scene.add(arrowMesh);
+          arrows.push({mesh:arrowMesh,vel:arrowDir.multiplyScalar(18),life:3,fromPlayer:false});
+        }
+      } else {
+        mob.wanderTimer-=dt;
+        if(mob.wanderTimer<=0){mob.wanderDir+=( Math.random()-0.5)*1.5;mob.wanderTimer=2+Math.random()*3;}
+        moveX=Math.cos(mob.wanderDir)*def.speed*0.3*dt;
+        moveZ=Math.sin(mob.wanderDir)*def.speed*0.3*dt;
+      }
+    }
+ 
+    // Move with simple collision
+    const hW=0.3;
+    function hCanMove(ax,d){const np=mob.pos.clone();np[ax]+=d;for(let by=Math.floor(np.y);by<=Math.floor(np.y+1.6);by++)for(let bx=Math.floor(np.x-hW);bx<=Math.floor(np.x+hW);bx++)for(let bz=Math.floor(np.z-hW);bz<=Math.floor(np.z+hW);bz++){const bl=getBlock(bx,by,bz);if(bl&&bl!==0&&bl!==13)return false;}return true;}
+    if(hCanMove('x',moveX))mob.pos.x+=moveX; else mob.wanderDir+=Math.PI/2;
+    if(hCanMove('z',moveZ))mob.pos.z+=moveZ; else mob.wanderDir+=Math.PI/2;
+    mob.pos.y+=mob.vel.y*dt;
+    const gb=getBlock(Math.floor(mob.pos.x),Math.floor(mob.pos.y-0.1),Math.floor(mob.pos.z));
+    if(gb&&mob.vel.y<0){mob.pos.y=Math.ceil(mob.pos.y-0.1)+0.01;mob.vel.y=0;mob.onGround=true;}else mob.onGround=false;
+    // Jump over walls
+    if(mob.onGround&&(moveX!==0||moveZ!==0)){const fb=getBlock(Math.floor(mob.pos.x+Math.cos(mob.wanderDir)*0.5),Math.floor(mob.pos.y),Math.floor(mob.pos.z+Math.sin(mob.wanderDir)*0.5));if(fb&&fb!==0&&fb!==13)mob.vel.y=6;}
+    if(mob.pos.y<-5){mob.pos.y=groundHeightAt(mob.pos.x,mob.pos.z)+1;mob.vel.y=0;}
+ 
+    // Update mesh
+    mob.mesh.position.set(mob.pos.x,mob.pos.y+0.6,mob.pos.z);
+    if(moveX!==0||moveZ!==0){
+      let diff=mob.wanderDir+Math.PI/2-mob.mesh.rotation.y;
+      while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
+      mob.mesh.rotation.y+=diff*Math.min(dt*10,1);
+    }
+    // Leg animation
+    mob.mesh.userData.legTimer+=dt*(detected?def.speed:1)*2;
+    const lt=mob.mesh.userData.legTimer;
+    mob.mesh.children.forEach((c,ci)=>{if(ci>=6&&ci<=7)c.rotation.x=Math.sin(lt+(ci%2)*Math.PI)*0.5;});
+ 
+    // Hit flash
+    if(mob.hitTimer>0){mob.hitTimer-=dt;mob.mesh.children.forEach(c=>{if(c.material&&c.material.emissive)c.material.emissive.setHex(mob.hitTimer>0?0xaa1111:0x000000);});}
+ 
+    // Burns in daylight (not night)
+    if(!isNight()&&mob.type!=='creeper'){
+      mob.hp-=dt*0.5;
+      if(mob.hp<=0){scene.remove(mob.mesh);mob.dead=true;hostileMobs.splice(i,1);continue;}
+    }
+    // Despawn if very far
+    if(mob.pos.distanceTo(player.pos)>100){scene.remove(mob.mesh);mob.dead=true;hostileMobs.splice(i,1);}
+  }
+ 
+  // Update arrows
+  for(let i=arrows.length-1;i>=0;i--){
+    const a=arrows[i];
+    a.life-=dt;
+    a.vel.y-=18*dt;
+    a.mesh.position.addScaledVector(a.vel,dt);
+    a.mesh.rotation.x=Math.atan2(a.vel.y,Math.sqrt(a.vel.x*a.vel.x+a.vel.z*a.vel.z));
+    // Hit player
+    if(!a.fromPlayer){
+      const d=a.mesh.position.distanceTo(player.pos);
+      if(d<0.8){takeDamage(1);scene.remove(a.mesh);arrows.splice(i,1);continue;}
+    }
+    // Hit block
+    const bx=Math.floor(a.mesh.position.x),by=Math.floor(a.mesh.position.y),bz=Math.floor(a.mesh.position.z);
+    if(getBlock(bx,by,bz)){scene.remove(a.mesh);arrows.splice(i,1);continue;}
+    if(a.life<=0){scene.remove(a.mesh);arrows.splice(i,1);}
+  }
+}
+ 
+function tryHitHostile(){
+  const rayDir=new THREE.Vector3(0,0,-1);rayDir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));
+  for(const mob of hostileMobs){
+    if(mob.dead)continue;
+    const d=mob.mesh.position.clone().add(new THREE.Vector3(0,0.5,0)).sub(player.pos);
+    const proj=d.dot(rayDir);if(proj<0||proj>5)continue;
+    const perp=d.clone().sub(rayDir.clone().multiplyScalar(proj));
+    if(perp.length()<0.8){
+      mob.hp--;mob.hitTimer=0.25;
+      mob.mesh.children.forEach(c=>{if(c.material&&c.material.emissive)c.material.emissive.setHex(0xaa1111);});
+      if(mob.hp<=0){
+        spawnParticles(mob.pos.x,mob.pos.y+1,mob.pos.z,0x447744);
+        showMsg(`${mob.def.name} killed!`,1200);
+        scene.remove(mob.mesh);mob.dead=true;
+        hostileMobs.splice(hostileMobs.indexOf(mob),1);
+      } else {
+        showMsg(`${mob.def.name} ${mob.hp}/${mob.def.maxHp} ❤️`,600);
+      }
       return true;
     }
   }
@@ -710,9 +961,61 @@ function animate(){
   const dt=Math.min(clock.getDelta(),0.05);
   if(!gameStarted){renderer.render(scene,camera);return;}
   invincibleTimer=Math.max(0,invincibleTimer-dt);
-  sunAngle+=dt*0.005;
-  sun.position.set(Math.cos(sunAngle)*120,Math.sin(sunAngle)*120+40,60);
+  // ── Day/Night Cycle ──
+  dayTime=(dayTime+dt/DAY_DURATION)%1;
+  const sunA=dayTime*Math.PI*2-Math.PI/2;
+  const isDay=dayTime<0.45||dayTime>0.95;
+  const dawn=dayTime<0.05||dayTime>0.95;
+  const dusk=dayTime>0.42&&dayTime<0.55;
+  // Sun position
+  sun.position.set(Math.cos(sunA)*120,Math.sin(sunA)*120,60);
+  sunDisc&&(sunDisc.position.copy(sun.position));
+  // Moon opposite
+  moonMesh.position.set(-Math.cos(sunA)*120,-Math.sin(sunA)*120,-60);
+  moonLight.position.copy(moonMesh.position);
+  // Sky brightness (0=night, 1=day)
+  const brightness=Math.max(0,Math.min(1,Math.sin(sunA)+0.15));
+  sun.intensity=brightness*1.4;
+  moonLight.intensity=(1-brightness)*0.3;
+  hemisphereLight.intensity=brightness*0.7+0.05;
+  starField.material.opacity=Math.max(0,1-brightness*3);
+  moonMesh.material.opacity=Math.max(0,1-brightness*2);
+  moonMesh.material.transparent=true;
+  // Sky colors
+  let skyTop,skyBot,fogHex;
+  if(brightness>0.5){
+    const biome=getBiome(Math.floor(player.pos.x),Math.floor(player.pos.z));
+    const skyColors={plains:['#2080ff','#b0deff'],mountain:['#1860cc','#90c0e8'],desert:['#e8a030','#f0d080'],jungle:['#208020','#80c080'],snow:['#80b0d8','#d0e8ff']};
+    const sc=skyColors[biome]||skyColors.plains;
+    skyTop=sc[0];skyBot=sc[1];
+    const fogColors={plains:0x87ceeb,mountain:0x6aabcc,desert:0xe8c870,jungle:0x50a050,snow:0xb0d0e8};
+    fogHex=fogColors[biome]||0x87ceeb;
+  } else if(dawn||dusk){
+    skyTop='#1a0a3a';skyBot='#e06030';fogHex=0xcc5522;
+  } else {
+    skyTop='#020408';skyBot='#0a0a18';fogHex=0x050510;
+  }
+  // Smoothly lerp fog/sky
+  skyMat.map=makeSkyTexture(skyTop,skyBot);skyMat.map.needsUpdate=true;
+  scene.fog.color.setHex(fogHex);renderer.setClearColor(fogHex);
+  scene.fog.near=60;scene.fog.far=160;
+  // Show day/night indicator
+  skyDome&&(skyDome.position.copy(camera.position));
   cloudGroup.position.x+=dt*0.5;
+  // Hostile mob spawning at night
+  if(isNight()){
+    hostileSpawnTimer-=dt;
+    if(hostileSpawnTimer<=0){
+      hostileSpawnTimer=8+Math.random()*6;
+      const nearHostile=hostileMobs.filter(m=>!m.dead&&m.pos.distanceTo(player.pos)<80).length;
+      if(nearHostile<15){
+        const types=['zombie','zombie','skeleton','creeper'];
+        spawnHostileMob(types[Math.floor(Math.random()*types.length)]);
+      }
+    }
+  } else {
+    hostileSpawnTimer=5; // reset timer for next night
+  }
  
   if(!pointerLocked&&!uiOpen&&!chatOpen){
     if(keys['ArrowLeft'])yaw+=1.5*dt;if(keys['ArrowRight'])yaw-=1.5*dt;
@@ -720,15 +1023,6 @@ function animate(){
     if(keys['ArrowDown'])pitch=Math.min(Math.PI/2-0.01,pitch+1.2*dt);
   }
   camera.position.copy(player.pos);camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
- 
-  const biome=getBiome(Math.floor(player.pos.x),Math.floor(player.pos.z));
-  const skyColors={plains:['#2080ff','#b0deff'],mountain:['#1860cc','#90c0e8'],desert:['#e8a030','#f0d080'],jungle:['#208020','#80c080'],snow:['#80b0d8','#d0e8ff']};
-  const sc=skyColors[biome]||skyColors.plains;
-  skyMat.map=makeSkyTexture(sc[0],sc[1]);skyMat.map.needsUpdate=true;
-  const fogColors={plains:0x87ceeb,mountain:0x6aabcc,desert:0xe8c870,jungle:0x50a050,snow:0xb0d0e8};
-  scene.fog.color.setHex(fogColors[biome]||0x87ceeb);
-  scene.fog.near=60;scene.fog.far=160;
-  renderer.setClearColor(fogColors[biome]||0x87ceeb);
  
   if(!uiOpen&&!chatOpen){
     const spd=keys['ShiftLeft']||keys['ShiftRight']?9:5.5;
@@ -770,7 +1064,7 @@ function animate(){
         setBlock(rc.x,rc.y,rc.z,0);breakTarget=null;breakTimer=0;bEl.style.display='none';
       }
     } else {bEl.style.display='none';breakTarget=null;breakTimer=0;}
-  } else {if(clickHeldTimer>0&&clickHeldTimer<0.2){if(!tryHitPlayer())tryHitMob();}clickHeldTimer=0;bEl.style.display='none';breakTarget=null;breakTimer=0;}
+  } else {if(clickHeldTimer>0&&clickHeldTimer<0.2){if(!tryHitPlayer()&&!tryHitHostile())tryHitMob();}clickHeldTimer=0;bEl.style.display='none';breakTarget=null;breakTimer=0;}
  
   if(mouseButtons[2]&&rc.hit&&placeCD<=0&&!uiOpen&&!chatOpen){
     const slot=hotbar[selectedSlot];

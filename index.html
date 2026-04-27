@@ -537,39 +537,32 @@ function updateHostileMobs(dt){
     mob.vel.y-=20*dt;
     let moveX=0,moveZ=0;
  
-    if(type==='creeper'||mob.type==='creeper'){
+    if(mob.type==='creeper'){
       if(detected){
         const dir=Math.atan2(dz,dx);
         moveX=Math.cos(dir)*def.speed*dt;
         moveZ=Math.sin(dir)*def.speed*dt;
         mob.wanderDir=dir;
         if(distToPlayer<def.attackRange){
-          // Start fuse
-          if(mob.creeperFuseTimer<0){mob.creeperFuseTimer=1.5;mob.creeperHissing=true;showMsg('🔥 Creeper is hissing!',1000);}
+          if(mob.creeperFuseTimer<0){mob.creeperFuseTimer=1.5;mob.creeperHissing=true;showMsg('🔥 Creeper!',1000);}
           mob.creeperFuseTimer-=dt;
-          // Flash green/white
-          mob.mesh.children.forEach(c=>{if(c.material)c.material.color.setHex(Math.sin(mob.creeperFuseTimer*20)>0?0xffffff:0x3a9a3a);});
+          mob.mesh.children.forEach(c=>{if(c.material&&c.material.color)c.material.color.setHex(Math.sin(mob.creeperFuseTimer*20)>0?0xffffff:0x3a9a3a);});
           if(mob.creeperFuseTimer<=0){
-            // EXPLODE
             spawnParticles(mob.pos.x,mob.pos.y,mob.pos.z,0x555533);
-            spawnParticles(mob.pos.x,mob.pos.y+1,mob.pos.z,0x888844);
             if(distToPlayer<5)takeDamage(Math.max(1,Math.floor((5-distToPlayer)*2)));
             showMsg('💥 BOOM!',1500);
-            // Destroy nearby blocks
+            // Destroy blocks (limit to avoid freeze)
+            const ex=Math.floor(mob.pos.x),ey=Math.floor(mob.pos.y),ez=Math.floor(mob.pos.z);
             for(let bx=-2;bx<=2;bx++)for(let by=-1;by<=2;by++)for(let bz=-2;bz<=2;bz++){
-              if(Math.sqrt(bx*bx+by*by+bz*bz)<2.2){
-                const wx=Math.floor(mob.pos.x)+bx,wy=Math.floor(mob.pos.y)+by,wz=Math.floor(mob.pos.z)+bz;
-                if(getBlock(wx,wy,wz)&&getBlock(wx,wy,wz)!==13)setBlock(wx,wy,wz,0);
-              }
+              if(bx*bx+by*by+bz*bz<6){const b=getBlock(ex+bx,ey+by,ez+bz);if(b&&b!==13)setBlockLocal(ex+bx,ey+by,ez+bz,0);}
             }
             scene.remove(mob.mesh);mob.dead=true;hostileMobs.splice(i,1);continue;
           }
         } else {
           mob.creeperFuseTimer=-1;mob.creeperHissing=false;
-          mob.mesh.children.forEach(c=>{if(c.material)c.material.color.setHex(0x3a9a3a);});
+          mob.mesh.children.forEach(c=>{if(c.material&&c.material.color)c.material.color.setHex(0x3a9a3a);});
         }
       }
-    } else if(mob.type==='zombie'){
       if(detected){
         const dir=Math.atan2(dz,dx);
         moveX=Math.cos(dir)*def.speed*dt;

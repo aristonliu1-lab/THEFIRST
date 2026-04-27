@@ -148,6 +148,20 @@ function send(ws, data) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
 }
  
+// ── Day/Night cycle (server authoritative) ──
+let serverDayTime = 0.25; // start at noon
+const DAY_DURATION = 300; // seconds per full cycle
+let lastTick = Date.now();
+ 
+setInterval(() => {
+  const now = Date.now();
+  const dt = (now - lastTick) / 1000;
+  lastTick = now;
+  serverDayTime = (serverDayTime + dt / DAY_DURATION) % 1;
+  // Broadcast to all players every second
+  broadcast({ type: 'timeSync', dayTime: serverDayTime });
+}, 1000);
+ 
 // Pre-generate spawn chunks
 console.log('Generating spawn chunks...');
 for (let cx = -3; cx <= 3; cx++) for (let cz = -3; cz <= 3; cz++) getChunkData(cx, cz);
@@ -166,7 +180,7 @@ wss.on('connection', (ws) => {
   console.log(`Player ${id} connected. Total: ${players.size}`);
  
   // Send this player their ID and all current players
-  send(ws, { type: 'welcome', id, spawn, players: [...players.values()].filter(p => p.id !== id) });
+  send(ws, { type: 'welcome', id, spawn, players: [...players.values()].filter(p => p.id !== id), dayTime: serverDayTime });
  
   // Send all block changes so far
   if (blockChanges.size > 0) {

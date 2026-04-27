@@ -184,6 +184,178 @@ const BLOCK_COLORS={
   26:['#a07840','#a07840','#b08848','#887030','#a07840','#a07840'],
   32:['#888','#888','#909090','#787878','#888','#888'],
 };
+ 
+// ── Pixel-art texture generator ──
+const TEX_SIZE=16;
+const textureCache={};
+ 
+function hexToRgb(hex){
+  hex=hex.replace('#','');
+  if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  return[parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)];
+}
+function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
+function varyColor(r,g,b,amount){const v=(Math.random()-0.5)*amount;return[r+v,g+v,b+v];}
+ 
+function makePixelTexture(blockId,face){
+  const key=`${blockId}_${face}`;
+  if(textureCache[key])return textureCache[key];
+ 
+  const c=document.createElement('canvas');c.width=TEX_SIZE;c.height=TEX_SIZE;
+  const ctx=c.getContext('2d');
+  const S=TEX_SIZE;
+ 
+  // Get base color
+  const colArr=BLOCK_COLORS[blockId]||Array(6).fill('#888');
+  const baseHex=colArr[face]||colArr[0]||'#888';
+  const[br,bg,bb]=hexToRgb(baseHex);
+ 
+  // Fill with base color first
+  ctx.fillStyle=baseHex;ctx.fillRect(0,0,S,S);
+ 
+  // Draw pixel-art patterns per block type
+  const px=(x,y,r,g,b,a=255)=>{
+    ctx.fillStyle=`rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a/255})`;
+    ctx.fillRect(x,y,1,1);
+  };
+ 
+  function noisePattern(base,variation,spots,spotColor,spotSize=1){
+    const[r,g,b]=hexToRgb(base);
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+      const[vr,vg,vb]=varyColor(r,g,b,variation);
+      px(x,y,vr,vg,vb);
+    }
+    if(spots){const[sr,sg,sb]=hexToRgb(spotColor);
+      for(let i=0;i<spots;i++){const sx=Math.floor(Math.random()*S),sy=Math.floor(Math.random()*S);
+        for(let dy=0;dy<spotSize;dy++)for(let dx=0;dx<spotSize;dx++)px(sx+dx,sy+dy,sr,sg,sb);
+      }
+    }
+  }
+ 
+  // Seed random for consistent textures per block type
+  const seedRng=(seed)=>{let s=seed;return()=>{s=(s*9301+49297)%233280;return s/233280;};};
+  const rng=seedRng(blockId*100+face*7);
+  const nr=()=>rng();
+ 
+  if(blockId===1){// Grass
+    if(face===2){// Top - green with variation
+      for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*30-15;px(x,y,89+v,140+v,50+v);}
+      // Darker patches
+      for(let i=0;i<8;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)px(sx+dx,sy+dy,60,110,30);}
+    } else if(face===3){// Bottom - dirt
+      for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*20-10;px(x,y,134+v,96+v,67+v);}
+      for(let i=0;i<12;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,110,75,50);}
+    } else {// Side - dirt bottom, grass top strip
+      for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+        if(y<4){const v=nr()*25-12;px(x,y,80+v,130+v,45+v);}
+        else{const v=nr()*20-10;px(x,y,134+v,96+v,67+v);}
+      }
+    }
+  } else if(blockId===2){// Dirt
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*22-11;px(x,y,134+v,96+v,67+v);}
+    for(let i=0;i<14;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,110+nr()*10,75,50);}
+  } else if(blockId===3){// Stone
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*18-9;px(x,y,128+v,128+v,128+v);}
+    // Cracks
+    for(let i=0;i<6;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S),len=2+Math.floor(nr()*3);
+      for(let d=0;d<len;d++)px(Math.min(S-1,sx+d),sy,95,95,95);}
+  } else if(blockId===4){// Sand
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*20-10;px(x,y,219+v,207+v,111+v);}
+    for(let i=0;i<10;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,195,183,95);}
+  } else if(blockId===5){// Snow
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*12-6;px(x,y,240+v,240+v,250+v);}
+  } else if(blockId===7||blockId===14||blockId===20){// Wood logs
+    const[wr,wg,wb]=blockId===14?[100,70,30]:blockId===20?[60,40,20]:[102,82,51];
+    if(face===2||face===3){// End grain rings
+      for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+        const dx=x-S/2,dy=y-S/2,dist=Math.sqrt(dx*dx+dy*dy);
+        const ring=Math.sin(dist*1.2)*0.5+0.5;const v=nr()*10-5+ring*20;
+        px(x,y,wr+v,wg+v-5,wb+v-10);
+      }
+    } else {// Bark - vertical lines
+      for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+        const stripe=(Math.sin(x*0.8+nr()*0.5)*10);const v=nr()*12-6;
+        px(x,y,wr+stripe+v,wg+stripe*0.6+v,wb+stripe*0.3+v);
+      }
+    }
+  } else if(blockId===8||blockId===15||blockId===21){// Leaves
+    const[lr,lg,lb]=blockId===15?[30,100,20]:blockId===21?[20,80,20]:[58,90,58];
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+      const v=nr()*30-15;const trans=nr()<0.15?0:255;
+      px(x,y,lr+v,lg+v,lb+v,trans);
+    }
+  } else if(blockId===9){// Iron ore
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*18-9;px(x,y,128+v,128+v,128+v);}
+    for(let i=0;i<8;i++){const sx=Math.floor(nr()*14)+1,sy=Math.floor(nr()*14)+1;
+      for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)px(sx+dx,sy+dy,200,170,140);}
+  } else if(blockId===10){// Coal ore
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*18-9;px(x,y,128+v,128+v,128+v);}
+    for(let i=0;i<7;i++){const sx=Math.floor(nr()*14)+1,sy=Math.floor(nr()*14)+1;
+      for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)px(sx+dx,sy+dy,30,30,30);}
+  } else if(blockId===11){// Gold ore
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*18-9;px(x,y,128+v,128+v,128+v);}
+    for(let i=0;i<6;i++){const sx=Math.floor(nr()*14)+1,sy=Math.floor(nr()*14)+1;
+      for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)px(sx+dx,sy+dy,230,200,30);}
+  } else if(blockId===12){// Diamond ore
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*18-9;px(x,y,128+v,128+v,128+v);}
+    for(let i=0;i<5;i++){const sx=Math.floor(nr()*14)+1,sy=Math.floor(nr()*14)+1;
+      for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)px(sx+dx,sy+dy,50,210,230);}
+  } else if(blockId===13){// Water
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+      const wave=Math.sin(x*0.8+y*0.3)*8;const v=nr()*15-7;
+      px(x,y,30+wave+v,100+wave*0.5+v,200+v,200);
+    }
+  } else if(blockId===22){// Planks
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+      const plank=Math.floor(y/4);const v=nr()*15-7+(plank%2)*8;
+      px(x,y,180+v,135+v,90+v);
+    }
+    // Plank lines
+    for(let y=0;y<S;y+=4){for(let x=0;x<S;x++)px(x,y,140,100,65);}
+    // Grain
+    for(let i=0;i<20;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,155,115,75);}
+  } else if(blockId===32){// Cobblestone
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*25-12;px(x,y,120+v,120+v,120+v);}
+    // Stone outlines
+    const stones=[[0,0,7,7],[8,0,7,4],[8,5,7,3],[0,8,4,7],[5,8,10,7]];
+    stones.forEach(([sx,sy,sw,sh])=>{
+      for(let x=sx;x<sx+sw&&x<S;x++){px(x,sy,80,80,80);px(x,sy+sh,80,80,80);}
+      for(let y=sy;y<sy+sh&&y<S;y++){px(sx,y,80,80,80);px(sx+sw,y,80,80,80);}
+    });
+  } else if(blockId===18){// Gravel
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*30-15;px(x,y,140+v,130+v,120+v);}
+    for(let i=0;i<20;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S),s=1+Math.floor(nr()*2);
+      for(let dy=0;dy<s;dy++)for(let dx=0;dx<s;dx++)px(sx+dx,sy+dy,100+nr()*30,95+nr()*30,90+nr()*30);}
+  } else if(blockId===19){// Ice
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*15-7;px(x,y,160+v,200+v,235+v,210);}
+    for(let i=0;i<5;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S),len=3+Math.floor(nr()*4);
+      for(let d=0;d<len;d++)px(Math.min(S-1,sx+d),sy,200,225,255,160);}
+  } else {// Default - noise pattern
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*20-10;px(x,y,br+v,bg+v,bb+v);}
+  }
+ 
+  const tex=new THREE.CanvasTexture(c);
+  tex.magFilter=THREE.NearestFilter;
+  tex.minFilter=THREE.NearestFilter;
+  tex.generateMipmaps=false;
+  textureCache[key]=tex;
+  return tex;
+}
+ 
+// Material cache for chunk mesh building
+const matCache={};
+function getBlockMat(blockId,face){
+  const key=`${blockId}_${face}`;
+  if(matCache[key])return matCache[key];
+  const mat=new THREE.MeshLambertMaterial({
+    map:makePixelTexture(blockId,face),
+    transparent:blockId===13||blockId===8||blockId===15||blockId===21,
+    opacity:blockId===13?0.85:1,
+    alphaTest:blockId===8||blockId===15||blockId===21?0.5:0,
+  });
+  matCache[key]=mat;
+  return mat;
+}
 const BREAK_TIMES={1:0.6,2:0.6,3:1.8,4:0.5,5:0.3,6:0.7,7:1.2,8:0.3,9:2.0,10:1.8,11:2.2,12:3.0,14:1.2,15:0.3,16:0.4,17:0.6,18:0.7,19:0.8,20:1.2,21:0.3,22:0.8,24:0.8,25:1.5,26:1.0,32:1.5};
 const DROPS={1:1,2:2,3:32,4:4,5:5,6:2,7:7,9:88,10:91,11:89,12:90,14:7,16:16,17:17,18:18,19:19,20:7,22:22,24:24,25:25,26:26,32:32};
  
@@ -263,8 +435,81 @@ function setBlockLocal(wx,wy,wz,type){if(wy<0||wy>=WORLD_HEIGHT)return;const cx=
 function setBlock(wx,wy,wz,type){setBlockLocal(wx,wy,wz,type);wsSend({type:'blockSet',x:wx,y:wy,z:wz,block:type});}
  
 const FACE_DATA=[{dir:[1,0,0],verts:[[1,0,0],[1,1,0],[1,1,1],[1,0,1]],fi:0},{dir:[-1,0,0],verts:[[0,0,1],[0,1,1],[0,1,0],[0,0,0]],fi:1},{dir:[0,1,0],verts:[[0,1,1],[1,1,1],[1,1,0],[0,1,0]],fi:2},{dir:[0,-1,0],verts:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]],fi:3},{dir:[0,0,1],verts:[[1,0,1],[1,1,1],[0,1,1],[0,0,1]],fi:4},{dir:[0,0,-1],verts:[[0,0,0],[0,1,0],[1,1,0],[1,0,0]],fi:5}];
-function buildChunkMesh(cx,cz){const positions=[],colors=[],indices=[];let vi=0;const data=getChunkData(cx,cz),idx=(x,y,z)=>x+z*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE;for(let y=0;y<WORLD_HEIGHT;y++)for(let lz=0;lz<CHUNK_SIZE;lz++)for(let lx=0;lx<CHUNK_SIZE;lx++){const b=data[idx(lx,y,lz)];if(!b)continue;const wx=cx*CHUNK_SIZE+lx,wz=cz*CHUNK_SIZE+lz,bc=BLOCK_COLORS[b]||Array(6).fill('#888888');for(const{dir,verts,fi}of FACE_DATA){const nb=getBlock(wx+dir[0],y+dir[1],wz+dir[2]);if(nb&&nb!==13&&!(b===13&&!nb)){if(!(b===13&&dir[1]<0))continue;}const hex=bc[fi]||'#888',r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,bl=parseInt(hex.slice(5,7),16)/255;const ao=dir[1]===1?1.0:dir[1]===-1?0.55:(fi===0||fi===1)?0.75:0.85;for(const[vx,vy,vz]of verts){positions.push(lx+vx,y+vy,lz+vz);colors.push(r*ao,g*ao,bl*ao);}indices.push(vi,vi+1,vi+2,vi,vi+2,vi+3);vi+=4;}}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.setIndex(indices);geo.computeVertexNormals();const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true,transparent:true}));mesh.position.set(cx*CHUNK_SIZE,0,cz*CHUNK_SIZE);return mesh;}
-function rebuildChunkMesh(cx,cz){const k=chunkKey(cx,cz);if(chunkMeshes.has(k)){scene.remove(chunkMeshes.get(k));chunkMeshes.get(k).geometry.dispose();}const m=buildChunkMesh(cx,cz);scene.add(m);chunkMeshes.set(k,m);}
+function buildChunkMesh(cx,cz){
+  // Group faces by material (blockId+face) for efficient rendering
+  const faceGroups=new Map(); // key -> {positions,normals,uvs,indices,vi}
+  const data=getChunkData(cx,cz),idx=(x,y,z)=>x+z*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE;
+  for(let y=0;y<WORLD_HEIGHT;y++)for(let lz=0;lz<CHUNK_SIZE;lz++)for(let lx=0;lx<CHUNK_SIZE;lx++){
+    const b=data[idx(lx,y,lz)];if(!b)continue;
+    const wx=cx*CHUNK_SIZE+lx,wz=cz*CHUNK_SIZE+lz;
+    for(const{dir,verts,fi}of FACE_DATA){
+      const nb=getBlock(wx+dir[0],y+dir[1],wz+dir[2]);
+      if(nb&&nb!==13&&!(b===13&&!nb)){if(!(b===13&&dir[1]<0))continue;}
+      const matKey=`${b}_${fi}`;
+      if(!faceGroups.has(matKey))faceGroups.set(matKey,{positions:[],uvs:[],indices:[],vi:0,blockId:b,face:fi});
+      const g=faceGroups.get(matKey);
+      const ao=dir[1]===1?1.0:dir[1]===-1?0.6:(fi===0||fi===1)?0.75:0.85;
+      const uvList=[[0,0],[0,1],[1,1],[1,0]];
+      for(let vi=0;vi<4;vi++){
+        const[vx,vy,vz]=verts[vi];
+        g.positions.push((lx+vx)*ao,(y+vy)*ao,(lz+vz)*ao); // bake AO into pos scale hack
+        // Actually just push position normally and handle AO via color
+        g.positions.pop();g.positions.pop();g.positions.pop();
+        g.positions.push(lx+vx,y+vy,lz+vz);
+        g.uvs.push(uvList[vi][0],uvList[vi][1]);
+      }
+      g.indices.push(g.vi,g.vi+1,g.vi+2,g.vi,g.vi+2,g.vi+3);g.vi+=4;
+    }
+  }
+  // Build one mesh per material group, merge into single geometry with groups
+  const allPos=[],allUvs=[],allIdx=[],groups=[];
+  const mats=[];
+  let baseVi=0;
+  for(const[key,g]of faceGroups){
+    const startIdx=allIdx.length;
+    allPos.push(...g.positions);
+    allUvs.push(...g.uvs);
+    for(const i of g.indices)allIdx.push(baseVi/3+i);
+    // Wait — need vertex index not position index
+    // Reset: use proper indexing
+    baseVi+=g.positions.length;
+    mats.push(getBlockMat(g.blockId,g.face));
+    groups.push({start:startIdx,count:g.indices.length,mat:mats.length-1});
+  }
+  // Rebuild properly
+  const pos2=[],uvs2=[],idx2=[];
+  let vi2=0;
+  const mats2=[];
+  const grps=[];
+  for(const[,g]of faceGroups){
+    const start=idx2.length;
+    const vCount=g.positions.length/3;
+    for(let i=0;i<g.positions.length;i++)pos2.push(g.positions[i]);
+    for(let i=0;i<g.uvs.length;i++)uvs2.push(g.uvs[i]);
+    for(const i of g.indices)idx2.push(vi2+i);
+    vi2+=vCount;
+    mats2.push(getBlockMat(g.blockId,g.face));
+    grps.push({start,count:g.indices.length,matIdx:mats2.length-1});
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos2,3));
+  geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs2,2));
+  geo.setIndex(idx2);
+  grps.forEach((g,i)=>geo.addGroup(g.start,g.count,g.matIdx));
+  geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,mats2);
+  mesh.position.set(cx*CHUNK_SIZE,0,cz*CHUNK_SIZE);
+  return mesh;
+}
+function rebuildChunkMesh(cx,cz){
+  const k=chunkKey(cx,cz);
+  if(chunkMeshes.has(k)){
+    const old=chunkMeshes.get(k);
+    scene.remove(old);
+    old.geometry.dispose();
+  }
+  const m=buildChunkMesh(cx,cz);scene.add(m);chunkMeshes.set(k,m);
+}
  
 // ══ THREE.JS ══
 const canvas=document.getElementById('canvas');

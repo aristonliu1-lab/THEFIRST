@@ -740,7 +740,7 @@ function updateOtherPlayerPos(id,x,y,z,yaw){
   if(!op)return;
   op.x=x;op.y=y;op.z=z;op.yaw=yaw||0;
   op.mesh.position.set(x,y-1.7,z);
-  op.mesh.rotation.y=yaw||0;
+  op.mesh.rotation.y=(yaw||0)+Math.PI;
 }
 function updateOtherPlayerHP(id,hp){
   const op=otherPlayers.get(id);

@@ -302,7 +302,7 @@ scene.add(starField);
 const moonLight=new THREE.DirectionalLight(0x3344aa,0);scene.add(moonLight);
 const hemisphereLight=new THREE.HemisphereLight(0x87ceeb,0x3d5e1a,0.7);scene.add(hemisphereLight);
 // Day/night time: 0=noon, 0.5=midnight (in 0..1 cycle)
-let dayTime=0; // starts at dawn
+let dayTime=0.25; // starts at midday (0=dawn, 0.25=noon, 0.5=dusk, 0.75=midnight)
 const DAY_DURATION=300; // seconds for full day/night cycle
  
 // ══ SMART ANIMAL AI ══
@@ -787,8 +787,12 @@ function connectWS(url,playerName){
   ws.onmessage=(e)=>{
     let msg;try{msg=JSON.parse(e.data);}catch{return;}
     switch(msg.type){
+      case'timeSync':
+        dayTime=msg.dayTime;
+        break;
       case'welcome':
         myId=msg.id;
+        if(msg.dayTime!==undefined)dayTime=msg.dayTime;
         player.pos.set(msg.spawn.x,msg.spawn.y,msg.spawn.z);
         for(const p of msg.players)addOtherPlayer(p);
         startGame();
@@ -955,7 +959,7 @@ function animate(){
   if(!gameStarted){renderer.render(scene,camera);return;}
   invincibleTimer=Math.max(0,invincibleTimer-dt);
   // ── Day/Night Cycle ──
-  dayTime=(dayTime+dt/DAY_DURATION)%1;
+  // dayTime is synced from server, don't advance locally
   const sunA=dayTime*Math.PI*2-Math.PI/2;
   const isDay=dayTime<0.45||dayTime>0.95;
   const dawn=dayTime<0.05||dayTime>0.95;

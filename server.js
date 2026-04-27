@@ -150,7 +150,7 @@ function send(ws, data) {
  
 // ── Day/Night cycle (server authoritative) ──
 let serverDayTime = 0.25; // start at noon
-const DAY_DURATION = 300; // seconds per full cycle
+const DAY_DURATION = 180; // seconds per full cycle (3 min day, 3 min night)
 let lastTick = Date.now();
  
 setInterval(() => {

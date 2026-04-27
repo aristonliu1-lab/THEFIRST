@@ -969,7 +969,6 @@ function animate(){
   const dusk=dayTime>0.42&&dayTime<0.55;
   // Sun position
   sun.position.set(Math.cos(sunA)*120,Math.sin(sunA)*120,60);
-  sunDisc&&(sunDisc.position.copy(sun.position));
   // Moon opposite
   moonMesh.position.set(-Math.cos(sunA)*120,-Math.sin(sunA)*120,-60);
   moonLight.position.copy(moonMesh.position);
@@ -999,8 +998,6 @@ function animate(){
   skyMat.map=makeSkyTexture(skyTop,skyBot);skyMat.map.needsUpdate=true;
   scene.fog.color.setHex(fogHex);renderer.setClearColor(fogHex);
   scene.fog.near=60;scene.fog.far=160;
-  // Show day/night indicator
-  skyDome&&(skyDome.position.copy(camera.position));
   cloudGroup.position.x+=dt*0.5;
   // Hostile mob spawning at night
   if(isNight()){
@@ -1079,6 +1076,9 @@ function animate(){
   // Update animals
   updateMobs(dt);
  
+  // Update hostile mobs
+  updateHostileMobs(dt);
+ 
   // Spawn animals around player dynamically
   mobSpawnTimer-=dt;
   if(mobSpawnTimer<=0){
@@ -1106,8 +1106,10 @@ function animate(){
   updateNameTags();
  
   const biomeNames={plains:'🌾 Plains',mountain:'⛰️ Mountains',desert:'🏜️ Desert',jungle:'🌴 Jungle',snow:'❄️ Snow'};
+  const curBiome=getBiome(Math.floor(player.pos.x),Math.floor(player.pos.z));
   const bl=document.getElementById('biome-label');if(bl)bl.style.display='none';
-  const st=document.getElementById('stats');if(st)st.innerHTML=`X:${player.pos.x.toFixed(1)} Y:${player.pos.y.toFixed(1)} Z:${player.pos.z.toFixed(1)}<br>${rc.hit?(BLOCK_NAMES[rc.block]||'Block'):'—'} | ${biomeNames[biome]||biome} | T=Chat`;
+  const nightLabel=isNight()?'🌙 Night':'☀️ Day';
+  const st=document.getElementById('stats');if(st)st.innerHTML=`X:${player.pos.x.toFixed(1)} Y:${player.pos.y.toFixed(1)} Z:${player.pos.z.toFixed(1)}<br>${rc.hit?(BLOCK_NAMES[rc.block]||'Block'):'—'} | ${biomeNames[curBiome]||curBiome} | ${nightLabel} | T=Chat`;
  
   renderer.render(scene,camera);
 }

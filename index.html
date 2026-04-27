@@ -522,7 +522,11 @@ function spawnHostileMob(type){
   hostileMobs.push({mesh,type,def,hp:def.hp,maxHp:def.hp,pos:new THREE.Vector3(mx,my,mz),vel:new THREE.Vector3(),onGround:false,dead:false,attackTimer:0,hitTimer:0,creeperFuseTimer:-1,creeperHissing:false,wanderDir:Math.random()*Math.PI*2,wanderTimer:2});
 }
  
-function isNight(){return dayTime>0.45&&dayTime<0.95;}
+function isNight(){
+  // sun is below horizon when brightness < 0.1
+  const sunA=dayTime*Math.PI*2-Math.PI/2;
+  return Math.sin(sunA)<-0.1;
+}
  
 function updateHostileMobs(dt){
   for(let i=hostileMobs.length-1;i>=0;i--){
@@ -1000,15 +1004,25 @@ function animate(){
   if(isNight()){
     hostileSpawnTimer-=dt;
     if(hostileSpawnTimer<=0){
-      hostileSpawnTimer=8+Math.random()*6;
+      hostileSpawnTimer=4+Math.random()*3;
       const nearHostile=hostileMobs.filter(m=>!m.dead&&m.pos.distanceTo(player.pos)<80).length;
-      if(nearHostile<15){
-        const types=['zombie','zombie','skeleton','creeper'];
-        spawnHostileMob(types[Math.floor(Math.random()*types.length)]);
+      if(nearHostile<20){
+        const types=['zombie','zombie','zombie','skeleton','skeleton','creeper'];
+        // Spawn 2-3 at a time
+        const count=2+Math.floor(Math.random()*2);
+        for(let i=0;i<count;i++)
+          spawnHostileMob(types[Math.floor(Math.random()*types.length)]);
       }
     }
   } else {
-    hostileSpawnTimer=5; // reset timer for next night
+    hostileSpawnTimer=4;
+    // Kill all hostiles in daylight
+    for(let i=hostileMobs.length-1;i>=0;i--){
+      if(hostileMobs[i].type!=='creeper'){
+        scene.remove(hostileMobs[i].mesh);
+        hostileMobs.splice(i,1);
+      }
+    }
   }
  
   if(!pointerLocked&&!uiOpen&&!chatOpen){

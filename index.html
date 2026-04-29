@@ -1,6 +1,3 @@
-Multiplayer index · HTML
-Copy
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1431,42 +1428,80 @@ function animate(){
  
   updateNameTags();
  
-  // ── First-person arm animation ──
+  // ── First-person arm & item animation ──
   const curSlot=hotbar[selectedSlot];
-  // Update item in hand appearance
+  const isSprinting=keys['ShiftLeft']||keys['ShiftRight'];
+  const isWalking=(keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD'])&&player.onGround;
+  armIdleTime+=dt;
+ 
+  // Update item in hand when slot changes
   if(curSlot.type!==lastArmItem){
     lastArmItem=curSlot.type;
     if(curSlot.type&&BLOCK_COLORS[curSlot.type]){
+      // It's a placeable block — show as small cube
       itemInHand.visible=true;
-      const hex=BLOCK_COLORS[curSlot.type][0]||'#888';
+      itemInHand.scale.set(1,1,1);
+      itemInHand.geometry.dispose();
+      itemInHand.geometry=new THREE.BoxGeometry(0.28,0.28,0.28);
+      const hex=BLOCK_COLORS[curSlot.type][2]||BLOCK_COLORS[curSlot.type][0]||'#888';
       const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
       itemInHand.material.color.setRGB(r,g,b);
-      itemInHand.scale.set(1.1,1.1,1.1);
+      // Tilt like Minecraft holding a block
+      itemInHand.rotation.set(0.5,0.8,0.2);
+      itemInHand.position.set(0.04,-0.24,0.02);
     } else if(curSlot.type){
-      itemInHand.visible=true;itemInHand.material.color.setHex(0xaaaaaa);
+      // Tool/sword — show as flat rectangle (like a sword/pickaxe)
+      itemInHand.visible=true;
+      itemInHand.geometry.dispose();
+      itemInHand.geometry=new THREE.BoxGeometry(0.08,0.5,0.08);
+      itemInHand.material.color.setHex(
+        curSlot.type>=53&&curSlot.type<=57?0xaaaaaa: // swords - silver
+        curSlot.type>=38&&curSlot.type<=42?0x888877: // pickaxes
+        curSlot.type>=43&&curSlot.type<=47?0x997755: // axes
+        0xaaaaaa
+      );
+      itemInHand.rotation.set(-0.3,0.1,0.15);
+      itemInHand.position.set(0.02,-0.18,0.0);
     } else {
       itemInHand.visible=false;
+      itemInHand.rotation.set(0,0,0);
     }
   }
-  // Swing animation on click
+ 
+  // Swing on left click
   if(mouseButtons[0]&&!uiOpen&&!chatOpen){
     if(!armSwinging){armSwinging=true;armSwingTimer=0;}
   }
+ 
   if(armSwinging){
-    armSwingTimer+=dt*8;
-    armGroup.rotation.x=Math.sin(armSwingTimer)*0.9;
-    if(armSwingTimer>Math.PI){armSwinging=false;armGroup.rotation.x=0;}
-  } else {
-    // Idle bob
-    armIdleTime+=dt;
-    armGroup.rotation.x=Math.sin(armIdleTime*1.2)*0.03;
-    armGroup.position.y=-0.36+Math.sin(armIdleTime*1.2)*0.008;
-    // Walking bob
-    const isWalking=keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD'];
-    if(isWalking){
-      armGroup.rotation.x+=Math.sin(armIdleTime*6)*0.07;
-      armGroup.position.y+=-0.36+Math.sin(armIdleTime*6)*0.015;
+    armSwingTimer+=dt*10;
+    // Quick downward swing then back up
+    const swing=Math.sin(armSwingTimer)*1.1;
+    armGroup.rotation.x=swing;
+    armGroup.rotation.z=Math.sin(armSwingTimer*0.5)*-0.1;
+    if(armSwingTimer>Math.PI){
+      armSwinging=false;
+      armGroup.rotation.x=0;
+      armGroup.rotation.z=0;
     }
+  } else if(isWalking){
+    // Walking/running arm swing — matches footsteps
+    const freq=isSprinting?9:6;
+    const amp=isSprinting?0.13:0.07;
+    const bob=isSprinting?0.022:0.012;
+    const swing=Math.sin(armIdleTime*freq)*amp;
+    armGroup.rotation.x=swing;
+    armGroup.rotation.z=Math.sin(armIdleTime*freq*0.5)*0.03;
+    // Vertical bob
+    armGroup.position.set(0.44,-0.36+Math.sin(armIdleTime*freq)*bob,-0.5);
+    // Slight horizontal sway
+    armGroup.position.x=0.44+Math.sin(armIdleTime*freq*0.5)*0.01;
+  } else {
+    // Idle breathing bob
+    const breathe=Math.sin(armIdleTime*1.4)*0.006;
+    armGroup.rotation.x+=(0-armGroup.rotation.x)*dt*8;
+    armGroup.rotation.z+=(0-armGroup.rotation.z)*dt*8;
+    armGroup.position.set(0.44,-0.36+breathe,-0.5);
   }
  
   const biomeNames={plains:'🌾 Plains',mountain:'⛰️ Mountains',desert:'🏜️ Desert',jungle:'🌴 Jungle',snow:'❄️ Snow'};
@@ -1510,4 +1545,4 @@ document.getElementById('start-btn').addEventListener('click',async()=>{
 window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
 </script>
 </body>
-</html
+</html>

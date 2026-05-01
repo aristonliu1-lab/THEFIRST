@@ -399,6 +399,20 @@ function makePixelTexture(blockId,face){
       for(let y=2;y<S;y+=4)for(let x=0;x<S;x++)px(x,y,40,100,25);
       for(let y=0;y<S;y++){px(0,y,40,100,25);px(S-1,y,40,100,25);}
     }
+  } else if(blockId===207){// Warped Nylium - teal mushroom ground
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*20-10;px(x,y,26+v,107+v,90+v);}
+    for(let i=0;i<10;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,10,140,110);}
+    // Small cyan spores
+    for(let i=0;i<6;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,100,220,200);}
+  } else if(blockId===208){// Warped Stem - blue wood
+    if(face===2||face===3){
+      for(let y=0;y<S;y++)for(let x=0;x<S;x++){const dx=x-S/2,dy=y-S/2,dist=Math.sqrt(dx*dx+dy*dy);const ring=Math.sin(dist*1.1)*0.5+0.5;const v=nr()*10-5+ring*15;px(x,y,42+v,74+v,106+v);}
+    } else {
+      for(let y=0;y<S;y++)for(let x=0;x<S;x++){const stripe=Math.sin(x*0.9)*8;const v=nr()*10-5;px(x,y,42+stripe+v,74+stripe*0.5+v,106+v);}
+    }
+  } else if(blockId===209){// Shroomlight - warm yellow glow
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const glow=Math.sin(x*0.7+y*0.7)*10;const v=nr()*12-6;px(x,y,224+glow+v,200+glow+v,40+v);}
+    for(let i=0;i<8;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,255,240,120);}
   } else if(blockId===200){// Obsidian - very dark purple with slight shine
     for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*10-5;px(x,y,20+v,5+v,40+v);}
     for(let i=0;i<4;i++){const sx=Math.floor(nr()*S),sy=Math.floor(nr()*S);px(sx,sy,60,20,80);}
@@ -462,6 +476,14 @@ const DROPS={1:1,2:2,3:32,4:4,5:5,6:2,7:7,9:88,10:91,11:89,12:90,14:7,16:16,17:1
 // Nether break times and drops
 BREAK_TIMES[200]=999;BREAK_TIMES[202]=0.8;BREAK_TIMES[203]=0.5;BREAK_TIMES[205]=0.9;BREAK_TIMES[206]=1.2;
 DROPS[202]=202;DROPS[203]=203;DROPS[205]=205;DROPS[206]=206;
+// Warped biome blocks
+BLOCK_NAMES[207]='Warped Nylium';BLOCK_NAMES[208]='Warped Stem';BLOCK_NAMES[209]='Shroomlight';
+BLOCK_ICONS[207]='🟦';BLOCK_ICONS[208]='🔵';BLOCK_ICONS[209]='🌟';
+BLOCK_COLORS[207]=['#1a6b5a','#1a6b5a','#22a080','#0a4a3a','#1a6b5a','#1a6b5a'];
+BLOCK_COLORS[208]=['#2a4a6a','#2a4a6a','#3a5a7a','#1a3a5a','#2a4a6a','#2a4a6a'];
+BLOCK_COLORS[209]=['#e0c830','#e0c830','#f0d840','#c0a820','#e0c830','#e0c830'];
+BREAK_TIMES[207]=0.6;BREAK_TIMES[208]=1.0;BREAK_TIMES[209]=0.4;
+DROPS[207]=207;DROPS[208]=208;DROPS[209]=209;
  
 // ── Recipes ──
 const W=7,P=22,S=23,C=32,I=88,G=89,D=90,CO=91;
@@ -1256,29 +1278,39 @@ const NETHER_HEIGHT=24;
 function generateNetherChunk(cx,cz){
   const data=new Uint8Array(CHUNK_SIZE*CHUNK_SIZE*NETHER_HEIGHT);
   const idx=(x,y,z)=>x+z*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE;
+  function setN(lx,y,lz,b){if(y>=0&&y<NETHER_HEIGHT&&lx>=0&&lx<CHUNK_SIZE&&lz>=0&&lz<CHUNK_SIZE)data[idx(lx,y,lz)]=b;}
   for(let lx=0;lx<CHUNK_SIZE;lx++)for(let lz=0;lz<CHUNK_SIZE;lz++){
     const wx=cx*CHUNK_SIZE+lx,wz=cz*CHUNK_SIZE+lz;
-    // Ceiling (netherrack)
-    for(let y=NETHER_HEIGHT-1;y>=NETHER_HEIGHT-3;y--)data[idx(lx,y,lz)]=202;
-    // Floor
-    for(let y=0;y<=3;y++)data[idx(lx,y,lz)]=y===0?204:202; // lava floor then netherrack
-    // Walls/terrain
-    const h=5+Math.floor((noise2D(wx*0.08,wz*0.08,77)+1)*5);
-    for(let y=1;y<=h;y++)data[idx(lx,y,lz)]=202;
-    // Glowstone clusters in ceiling
-    if(noise2D(wx*0.2,wz*0.2,88)>0.6){
-      for(let y=NETHER_HEIGHT-4;y>=NETHER_HEIGHT-6;y--){
-        if(noise3D(wx,y,wz,55)>0.6)data[idx(lx,y,lz)]=203;
+    // Determine if warped biome
+    const isWarped=noise2D(wx*0.04,wz*0.04,333)>0.3;
+    const floorBlock=isWarped?207:202; // warped nylium or netherrack
+    // Solid ceiling
+    for(let y=NETHER_HEIGHT-1;y>=NETHER_HEIGHT-4;y--)setN(lx,y,lz,202);
+    // Floor layers
+    setN(lx,0,lz,204); // lava at very bottom
+    for(let y=1;y<=2;y++)setN(lx,y,lz,202);
+    setN(lx,3,lz,floorBlock);
+    // Terrain columns
+    const hn=noise2D(wx*0.09,wz*0.09,77);
+    const h=4+Math.floor((hn+1)*4);
+    for(let y=4;y<h;y++)setN(lx,y,lz,202);
+    // Glowstone ceiling clusters
+    if(noise2D(wx*0.18,wz*0.18,88)>0.55){
+      for(let y=NETHER_HEIGHT-5;y>=NETHER_HEIGHT-8;y--){
+        if(noise3D(wx,y,wz,55)>0.55)setN(lx,y,lz,203);
       }
     }
-    // Soul sand patches
-    if(noise2D(wx*0.15,wz*0.15,99)>0.5&&h<=4){
-      data[idx(lx,h,lz)]=205;
+    // Soul sand on flat areas
+    if(h<=5&&noise2D(wx*0.12,wz*0.12,99)>0.4)setN(lx,h-1,lz,205);
+    // Nether brick pillars
+    if(noise2D(wx*0.08,wz*0.08,66)>0.72){
+      const ph=h+Math.floor(noise2D(wx,wz,44)*6)+3;
+      for(let y=h;y<ph&&y<NETHER_HEIGHT-4;y++)setN(lx,y,lz,206);
     }
-    // Nether brick structures
-    if(noise2D(wx*0.1,wz*0.1,66)>0.7){
-      const bh=6+Math.floor(noise2D(wx,wz,44)*4);
-      for(let y=h;y<=bh&&y<NETHER_HEIGHT-3;y++)data[idx(lx,y,lz)]=206;
+    // Warped biome: add cyan/teal vegetation-like blocks
+    if(isWarped&&h<=6){
+      if(noise2D(wx*0.3,wz*0.3,444)>0.6)setN(lx,h,lz,208); // warped stem
+      if(noise2D(wx*0.25,wz*0.25,555)>0.7){setN(lx,h,lz,208);setN(lx,h+1,lz,209);} // stem+shroomlight
     }
   }
   return data;
@@ -1380,36 +1412,68 @@ function buildSpawnPortal(){
 const OVERWORLD_PORTAL_POS={x:1.5,y:15,z:0.5};
 const NETHER_PORTAL_POS={x:4.5,y:8,z:2.5};
  
+function setNetherBlock(wx,wy,wz,b){
+  if(wy<0||wy>=NETHER_HEIGHT)return;
+  const cx=Math.floor(wx/CHUNK_SIZE),cz=Math.floor(wz/CHUNK_SIZE);
+  const lx=((wx%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE,lz=((wz%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE;
+  getNetherChunkData(cx,cz)[lx+lz*CHUNK_SIZE+wy*CHUNK_SIZE*CHUNK_SIZE]=b;
+}
+ 
+function buildNetherPortalAt(wx,wy,wz){
+  // Clear space
+  for(let x=0;x<4;x++)for(let y=0;y<6;y++)for(let z=-1;z<=1;z++)setNetherBlock(wx+x,wy+y,wz+z,0);
+  // Obsidian frame
+  for(let x=0;x<4;x++){setNetherBlock(wx+x,wy,wz,200);setNetherBlock(wx+x,wy+4,wz,200);}
+  for(let y=wy;y<=wy+4;y++){setNetherBlock(wx,y,wz,200);setNetherBlock(wx+3,y,wz,200);}
+  // Portal fill
+  for(let x=1;x<=2;x++)for(let y=wy+1;y<=wy+3;y++)setNetherBlock(wx+x,y,wz,201);
+  // Rebuild affected chunks
+  const seen=new Set();
+  for(let x=wx-1;x<=wx+4;x++)for(let z=wz-1;z<=wz+1;z++){
+    const k=chunkKey(Math.floor(x/CHUNK_SIZE),Math.floor(z/CHUNK_SIZE));
+    if(!seen.has(k)){seen.add(k);rebuildNetherMesh(Math.floor(x/CHUNK_SIZE),Math.floor(z/CHUNK_SIZE));}
+  }
+}
+ 
+function findNetherFloor(wx,wz){
+  for(let y=NETHER_HEIGHT-4;y>0;y--){
+    const b=getNetherBlock(wx,y,wz);
+    if(b&&b!==204&&b!==201)return y+1;
+  }
+  return 4;
+}
+ 
 function enterNether(){
   inNether=true;
+  // Hide overworld
   for(const[,m]of chunkMeshes)m.visible=false;
-  const pcx=Math.floor(NETHER_PORTAL_POS.x/CHUNK_SIZE),pcz=Math.floor(NETHER_PORTAL_POS.z/CHUNK_SIZE);
-  for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++)rebuildNetherMesh(pcx+dx,pcz+dz);
-  player.pos.set(NETHER_PORTAL_POS.x,NETHER_PORTAL_POS.y,NETHER_PORTAL_POS.z);
-  // Build return portal in nether
-  const nx=Math.floor(NETHER_PORTAL_POS.x),nz=Math.floor(NETHER_PORTAL_POS.z);
-  let ny=5;for(let y=NETHER_HEIGHT-1;y>0;y--){if(getNetherBlock(nx,y,nz)&&getNetherBlock(nx,y,nz)!==204){ny=y+1;break;}}
-  // Clear space
-  for(let x=0;x<4;x++)for(let y=ny;y<=ny+5;y++)for(let z=-1;z<=1;z++){const d=getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor((nz+z)/CHUNK_SIZE));const lx=((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE,lz=((nz+z)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE;d[lx+lz*CHUNK_SIZE+(ny+y-ny)*CHUNK_SIZE*CHUNK_SIZE]=0;}
-  // Frame
-  for(let x=0;x<4;x++){getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[(((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+ny*CHUNK_SIZE*CHUNK_SIZE]=200;getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[(((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+(ny+4)*CHUNK_SIZE*CHUNK_SIZE]=200;}
-  for(let y=ny;y<=ny+4;y++){getNetherChunkData(Math.floor(nx/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[((nx%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE]=200;getNetherChunkData(Math.floor((nx+3)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[(((nx+3)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE]=200;}
-  // Portal fill
-  for(let x=1;x<=2;x++)for(let y=ny+1;y<=ny+3;y++){const d=getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE));const lx=((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE,lz=(nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE;d[lx+lz*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE]=201;}
-  // Rebuild
-  rebuildNetherMesh(pcx,pcz);rebuildNetherMesh(pcx-1,pcz);rebuildNetherMesh(pcx+1,pcz);
+  // Pick a fixed nether spawn point
+  const nx=0,nz=5;
+  // Generate nether chunks around spawn first
+  for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++){
+    getNetherChunkData(Math.floor(nx/CHUNK_SIZE)+dx,Math.floor(nz/CHUNK_SIZE)+dz);
+  }
+  // Find floor and place portal there
+  const ny=findNetherFloor(nx+1,nz);
+  buildNetherPortalAt(nx,ny,nz);
+  // Spawn player inside portal
   player.pos.set(nx+1.5,ny+2,nz+0.5);
-  scene.fog.color.setHex(0x220000);renderer.setClearColor(0x220000);
-  showMsg('🔥 You entered the Nether! Walk into portal to return.',4000);
+  player.vel.set(0,0,0);
+  // Build meshes
+  for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++){
+    rebuildNetherMesh(Math.floor(nx/CHUNK_SIZE)+dx,Math.floor(nz/CHUNK_SIZE)+dz);
+  }
+  showMsg('🔥 Welcome to the Nether! Step into the portal to return.',5000);
 }
  
 function exitNether(){
   inNether=false;
-  // Hide nether meshes
   for(const[,m]of netherMeshes)m.visible=false;
-  // Show overworld
   for(const[,m]of chunkMeshes)m.visible=true;
-  player.pos.set(OVERWORLD_PORTAL_POS.x,OVERWORLD_PORTAL_POS.y,OVERWORLD_PORTAL_POS.z);
+  // Spawn back near overworld portal
+  let sy=10;for(let y=WORLD_HEIGHT-1;y>0;y--){const b=getBlock(1,y,0);if(b&&b!==0&&b!==13){sy=y+1;break;}}
+  player.pos.set(1.5,sy+3,0.5);
+  player.vel.set(0,0,0);
   showMsg('🌍 You returned to the Overworld!',3000);
 }
  

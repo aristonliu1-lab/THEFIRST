@@ -1349,24 +1349,35 @@ let spawnPortalBuilt=false;
  
 function buildSpawnPortal(){
   if(spawnPortalBuilt)return;spawnPortalBuilt=true;
-  // Find spawn surface height
-  let sy=10;for(let y=WORLD_HEIGHT-1;y>0;y--){if(getBlock(3,y,0)&&getBlock(3,y,0)!==13){sy=y+1;break;}}
-  // Build obsidian frame (4 wide, 5 tall)
-  const px=3,pz=2;
-  // Bottom
+  // Find ground height near spawn
+  let sy=10;
+  for(let y=WORLD_HEIGHT-1;y>0;y--){
+    const b=getBlock(0,y,0);
+    if(b&&b!==0&&b!==13){sy=y+1;break;}
+  }
+  const px=0,pz=0; // right at spawn 0,0
+  // Clear space inside portal first
+  for(let x=0;x<4;x++)for(let y=sy;y<=sy+5;y++)for(let z=-1;z<=1;z++)setBlockLocal(px+x,y,pz+z,0);
+  // Bottom row of obsidian
   for(let x=0;x<4;x++)setBlockLocal(px+x,sy,pz,200);
-  // Top
+  // Top row
   for(let x=0;x<4;x++)setBlockLocal(px+x,sy+4,pz,200);
-  // Sides
+  // Left and right columns
   for(let y=sy;y<=sy+4;y++){setBlockLocal(px,y,pz,200);setBlockLocal(px+3,y,pz,200);}
-  // Portal fill (inside)
+  // Purple portal fill inside
   for(let x=1;x<=2;x++)for(let y=sy+1;y<=sy+3;y++)setBlockLocal(px+x,y,pz,201);
-  // Rebuild chunks
-  rebuildChunkMesh(Math.floor(px/CHUNK_SIZE),Math.floor(pz/CHUNK_SIZE));
+  // Rebuild all nearby chunks
+  const set=new Set();
+  for(let x=px-1;x<=px+4;x++)for(let y=sy;y<=sy+5;y++)for(let z=pz-1;z<=pz+1;z++){
+    const ck=chunkKey(Math.floor(x/CHUNK_SIZE),Math.floor(z/CHUNK_SIZE));
+    set.add(ck);
+  }
+  for(const k of set){const[cx,cz]=k.split(',').map(Number);rebuildChunkMesh(cx,cz);}
+  console.log('Portal built at',px,sy,pz);
 }
  
 // Overworld portal position (for return teleport)
-const OVERWORLD_PORTAL_POS={x:4.5,y:15,z:2.5};
+const OVERWORLD_PORTAL_POS={x:1.5,y:15,z:0.5};
 const NETHER_PORTAL_POS={x:4.5,y:8,z:2.5};
  
 function enterNether(){

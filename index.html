@@ -1382,20 +1382,25 @@ const NETHER_PORTAL_POS={x:4.5,y:8,z:2.5};
  
 function enterNether(){
   inNether=true;
-  // Hide all overworld meshes
   for(const[,m]of chunkMeshes)m.visible=false;
-  // Show nether
   const pcx=Math.floor(NETHER_PORTAL_POS.x/CHUNK_SIZE),pcz=Math.floor(NETHER_PORTAL_POS.z/CHUNK_SIZE);
   for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++)rebuildNetherMesh(pcx+dx,pcz+dz);
   player.pos.set(NETHER_PORTAL_POS.x,NETHER_PORTAL_POS.y,NETHER_PORTAL_POS.z);
-  // Build exit portal in nether
+  // Build return portal in nether
   const nx=Math.floor(NETHER_PORTAL_POS.x),nz=Math.floor(NETHER_PORTAL_POS.z);
-  let ny=8;for(let y=NETHER_HEIGHT-1;y>0;y--){if(getNetherBlock(nx,y,nz)){ny=y+1;break;}}
-  // Nether sky
+  let ny=5;for(let y=NETHER_HEIGHT-1;y>0;y--){if(getNetherBlock(nx,y,nz)&&getNetherBlock(nx,y,nz)!==204){ny=y+1;break;}}
+  // Clear space
+  for(let x=0;x<4;x++)for(let y=ny;y<=ny+5;y++)for(let z=-1;z<=1;z++){const d=getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor((nz+z)/CHUNK_SIZE));const lx=((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE,lz=((nz+z)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE;d[lx+lz*CHUNK_SIZE+(ny+y-ny)*CHUNK_SIZE*CHUNK_SIZE]=0;}
+  // Frame
+  for(let x=0;x<4;x++){getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[(((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+ny*CHUNK_SIZE*CHUNK_SIZE]=200;getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[(((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+(ny+4)*CHUNK_SIZE*CHUNK_SIZE]=200;}
+  for(let y=ny;y<=ny+4;y++){getNetherChunkData(Math.floor(nx/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[((nx%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE]=200;getNetherChunkData(Math.floor((nx+3)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE))[(((nx+3)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)+((nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE)*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE]=200;}
+  // Portal fill
+  for(let x=1;x<=2;x++)for(let y=ny+1;y<=ny+3;y++){const d=getNetherChunkData(Math.floor((nx+x)/CHUNK_SIZE),Math.floor(nz/CHUNK_SIZE));const lx=((nx+x)%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE,lz=(nz%CHUNK_SIZE+CHUNK_SIZE)%CHUNK_SIZE;d[lx+lz*CHUNK_SIZE+y*CHUNK_SIZE*CHUNK_SIZE]=201;}
+  // Rebuild
+  rebuildNetherMesh(pcx,pcz);rebuildNetherMesh(pcx-1,pcz);rebuildNetherMesh(pcx+1,pcz);
+  player.pos.set(nx+1.5,ny+2,nz+0.5);
   scene.fog.color.setHex(0x220000);renderer.setClearColor(0x220000);
-  scene.fog.near=30;scene.fog.far=80;
-  skyMat.color={r:0.13,g:0,b:0};
-  showMsg('🔥 You entered the Nether!',3000);
+  showMsg('🔥 You entered the Nether! Walk into portal to return.',4000);
 }
  
 function exitNether(){
@@ -1410,16 +1415,25 @@ function exitNether(){
  
 // Check if player is in a portal block
 function checkPortalTeleport(dt){
-  const bx=Math.floor(player.pos.x),by=Math.floor(player.pos.y),bz=Math.floor(player.pos.z);
-  const block=inNether?getNetherBlock(bx,by,bz):getBlock(bx,by,bz);
-  if(block===201){
+  // Check multiple player body positions for portal blocks
+  const checks=[
+    [Math.floor(player.pos.x),Math.floor(player.pos.y),Math.floor(player.pos.z)],
+    [Math.floor(player.pos.x),Math.floor(player.pos.y-0.5),Math.floor(player.pos.z)],
+    [Math.floor(player.pos.x),Math.floor(player.pos.y-1.0),Math.floor(player.pos.z)],
+    [Math.floor(player.pos.x),Math.floor(player.pos.y-1.5),Math.floor(player.pos.z)],
+  ];
+  let inPortal=false;
+  for(const[bx,by,bz]of checks){
+    const block=inNether?getNetherBlock(bx,by,bz):getBlock(bx,by,bz);
+    if(block===201){inPortal=true;break;}
+  }
+  if(inPortal){
     portalTimer+=dt;
-    if(portalTimer>2){
+    showMsg(`🌀 Teleporting in ${Math.ceil(Math.max(0,2-portalTimer))}...`,200);
+    if(portalTimer>=2){
       portalTimer=0;
       if(inNether)exitNether();else enterNether();
     }
-    // Show portal effect
-    showMsg(`🌀 Teleporting... ${Math.ceil(2-portalTimer)}s`,100);
   } else {
     portalTimer=Math.max(0,portalTimer-dt*2);
   }

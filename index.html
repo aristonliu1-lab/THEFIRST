@@ -1456,27 +1456,27 @@ function enterNether(){
   // Find floor and place portal there
   const ny=findNetherFloor(nx+1,nz);
   buildNetherPortalAt(nx,ny,nz);
-  // Spawn player inside portal
-  player.pos.set(nx+1.5,ny+2,nz+0.5);
+  // Spawn player IN FRONT of portal (not inside it)
+  player.pos.set(nx+1.5,ny+2,nz+3);
   player.vel.set(0,0,0);
   // Build meshes
   for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++){
     rebuildNetherMesh(Math.floor(nx/CHUNK_SIZE)+dx,Math.floor(nz/CHUNK_SIZE)+dz);
   }
-  showMsg('🔥 Welcome to the Nether! Step into the portal to return.',5000);
-  portalCooldown=5;
+  showMsg('🔥 Welcome to the Nether! Walk back into the portal to return.',5000);
+  portalCooldown=3;
 }
 
 function exitNether(){
   inNether=false;
   for(const[,m]of netherMeshes)m.visible=false;
   for(const[,m]of chunkMeshes)m.visible=true;
-  // Spawn back near overworld portal
+  // Spawn in front of the overworld portal (portal is at x=0-3, z=0)
   let sy=10;for(let y=WORLD_HEIGHT-1;y>0;y--){const b=getBlock(1,y,0);if(b&&b!==0&&b!==13){sy=y+1;break;}}
-  player.pos.set(1.5,sy+3,0.5);
+  player.pos.set(1.5,sy+2,3); // 3 blocks in front of portal
   player.vel.set(0,0,0);
   showMsg('🌍 You returned to the Overworld!',3000);
-  portalCooldown=5;
+  portalCooldown=3;
 }
 
 // Check if player is in a portal block

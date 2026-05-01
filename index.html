@@ -111,7 +111,7 @@ body{background:#000;overflow:hidden;font-family:'Courier New',monospace}
     <div class="ctrl"><span class="key">Shift</span><span>Sprint</span></div>
   </div>
 </div>
-
+ 
 <canvas id="canvas"></canvas>
 <div id="click-overlay">🖱️ Click to capture mouse<span>WASD = move · T = chat · E = inventory</span></div>
 <div id="crosshair"></div>
@@ -150,7 +150,7 @@ body{background:#000;overflow:hidden;font-family:'Courier New',monospace}
   <p>Better luck next time...</p>
   <button id="respawn-btn">RESPAWN</button>
 </div>
-
+ 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ══ BLOCK DATA ══
@@ -184,7 +184,7 @@ const BLOCK_COLORS={
   26:['#a07840','#a07840','#b08848','#887030','#a07840','#a07840'],
   32:['#888','#888','#909090','#787878','#888','#888'],
 };
-
+ 
 // Nether block IDs (200+)
 BLOCK_NAMES[200]='Obsidian';
 BLOCK_NAMES[201]='Nether Portal';
@@ -204,7 +204,7 @@ BLOCK_COLORS[205]=['#4a3828','#4a3828','#5a4838','#3a2818','#4a3828','#4a3828'];
 BLOCK_COLORS[206]=['#3a2030','#3a2030','#4a3040','#2a1020','#3a2030','#3a2030'];
 const TEX_SIZE=16;
 const textureCache={};
-
+ 
 function hexToRgb(hex){
   hex=hex.replace('#','');
   if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
@@ -212,29 +212,29 @@ function hexToRgb(hex){
 }
 function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
 function varyColor(r,g,b,amount){const v=(Math.random()-0.5)*amount;return[r+v,g+v,b+v];}
-
+ 
 function makePixelTexture(blockId,face){
   const key=`${blockId}_${face}`;
   if(textureCache[key])return textureCache[key];
-
+ 
   const c=document.createElement('canvas');c.width=TEX_SIZE;c.height=TEX_SIZE;
   const ctx=c.getContext('2d');
   const S=TEX_SIZE;
-
+ 
   // Get base color
   const colArr=BLOCK_COLORS[blockId]||Array(6).fill('#888');
   const baseHex=colArr[face]||colArr[0]||'#888';
   const[br,bg,bb]=hexToRgb(baseHex);
-
+ 
   // Fill with base color first
   ctx.fillStyle=baseHex;ctx.fillRect(0,0,S,S);
-
+ 
   // Draw pixel-art patterns per block type
   const px=(x,y,r,g,b,a=255)=>{
     ctx.fillStyle=`rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a/255})`;
     ctx.fillRect(x,y,1,1);
   };
-
+ 
   function noisePattern(base,variation,spots,spotColor,spotSize=1){
     const[r,g,b]=hexToRgb(base);
     for(let y=0;y<S;y++)for(let x=0;x<S;x++){
@@ -247,12 +247,12 @@ function makePixelTexture(blockId,face){
       }
     }
   }
-
+ 
   // Seed random for consistent textures per block type
   const seedRng=(seed)=>{let s=seed;return()=>{s=(s*9301+49297)%233280;return s/233280;};};
   const rng=seedRng(blockId*100+face*7);
   const nr=()=>rng();
-
+ 
   if(blockId===1){// Grass
     if(face===2){// Top - green with variation
       for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*30-15;px(x,y,89+v,140+v,50+v);}
@@ -448,7 +448,7 @@ function makePixelTexture(blockId,face){
   } else {// Default - noise pattern
     for(let y=0;y<S;y++)for(let x=0;x<S;x++){const v=nr()*20-10;px(x,y,br+v,bg+v,bb+v);}
   }
-
+ 
   const tex=new THREE.CanvasTexture(c);
   tex.magFilter=THREE.NearestFilter;
   tex.minFilter=THREE.NearestFilter;
@@ -456,7 +456,7 @@ function makePixelTexture(blockId,face){
   textureCache[key]=tex;
   return tex;
 }
-
+ 
 // Material cache for chunk mesh building
 const matCache={};
 function getBlockMat(blockId,face){
@@ -484,7 +484,7 @@ BLOCK_COLORS[208]=['#2a4a6a','#2a4a6a','#3a5a7a','#1a3a5a','#2a4a6a','#2a4a6a'];
 BLOCK_COLORS[209]=['#e0c830','#e0c830','#f0d840','#c0a820','#e0c830','#e0c830'];
 BREAK_TIMES[207]=0.6;BREAK_TIMES[208]=1.0;BREAK_TIMES[209]=0.4;
 DROPS[207]=207;DROPS[208]=208;DROPS[209]=209;
-
+ 
 // ── Recipes ──
 const W=7,P=22,S=23,C=32,I=88,G=89,D=90,CO=91;
 const RECIPES=[
@@ -520,12 +520,12 @@ function renderRecipes(filter=''){
   });
   list.innerHTML=html;
 }
-
+ 
 let uiOpen=false;
 function switchTab(tab){document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['inventory','crafting'][i]===tab));document.getElementById('tab-inventory').classList.toggle('active',tab==='inventory');document.getElementById('tab-crafting').classList.toggle('active',tab==='crafting');if(tab==='crafting')renderRecipes('');else renderInvGrid();}
 function openUI(tab='inventory'){uiOpen=true;switchTab(tab);document.getElementById('ui-panel').style.display='block';if(pointerLocked)document.exitPointerLock&&document.exitPointerLock();}
 function closeUI(){uiOpen=false;document.getElementById('ui-panel').style.display='none';canvas.requestPointerLock&&canvas.requestPointerLock();}
-
+ 
 const inventory={};
 const hotbar=Array(9).fill(null).map(()=>({type:null,count:0}));
 let selectedSlot=0;
@@ -535,7 +535,7 @@ function renderHotbar(){const hb=document.getElementById('hotbar');hb.innerHTML=
 function setSlot(n){selectedSlot=n;renderHotbar();}
 function renderInvGrid(){const grid=document.getElementById('inv-grid');grid.innerHTML='';const entries=Object.entries(inventory).filter(([k,v])=>v>0);if(!entries.length){grid.innerHTML='<div style="color:rgba(255,255,255,0.35);font-size:13px;grid-column:span 6;text-align:center;padding:24px">Mine blocks to collect items!</div>';return;}for(const[type,count]of entries){const div=document.createElement('div');div.className='inv-slot';div.innerHTML=`<span class="inv-slot-icon">${BLOCK_ICONS[type]||'?'}</span><span class="inv-slot-name">${(BLOCK_NAMES[type]||'').slice(0,9)}</span><span class="inv-slot-count">${count}</span>`;div.addEventListener('click',()=>moveToHotbar(Number(type)));grid.appendChild(div);}}
 function moveToHotbar(t){if(!inventory[t]||inventory[t]<=0)return;for(let i=0;i<9;i++){if(hotbar[i].type===t){hotbar[i].count++;inventory[t]--;renderHotbar();renderInvGrid();return;}}for(let i=0;i<9;i++){if(!hotbar[i].type){hotbar[i].type=t;hotbar[i].count=1;inventory[t]--;renderHotbar();renderInvGrid();return;}}showMsg('Hotbar is full!');}
-
+ 
 const MAX_HP=10;let health=MAX_HP,invincibleTimer=0;
 function renderHealth(){const w=document.getElementById('health-wrap');w.innerHTML='';for(let i=0;i<MAX_HP;i++){const s=document.createElement('span');s.className='heart'+(i>=health?' empty':'');s.textContent='❤️';w.appendChild(s);}}
 function takeDamage(n){if(invincibleTimer>0)return;health=Math.max(0,health-n);invincibleTimer=0.8;renderHealth();const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(220,0,0,0.3);pointer-events:none;z-index:19;animation:fadeRed 0.6s forwards';document.body.appendChild(o);setTimeout(()=>o.remove(),600);if(health<=0)showDeathScreen();}
@@ -544,7 +544,7 @@ document.getElementById('respawn-btn').addEventListener('click',()=>{health=MAX_
 const fadeStyle=document.createElement('style');fadeStyle.textContent='@keyframes fadeRed{from{opacity:1}to{opacity:0}}';document.head.appendChild(fadeStyle);
 let toastTimer=null;
 function showPickup(n,t){const el=document.getElementById('pickup-toast');el.textContent=`+${n} ${BLOCK_ICONS[t]||''} ${BLOCK_NAMES[t]||'Item'}`;el.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.display='none',1600);}
-
+ 
 // ══ WORLD ══
 const CHUNK_SIZE=16,WORLD_HEIGHT=32,RENDER_DIST=5;
 function noise2D(x,z,seed=0){let v=0,amp=1,freq=1,max=0,s=seed*7.3;for(let o=0;o<6;o++){v+=Math.sin(x*freq*0.07+s+Math.cos(z*freq*0.09+s))*Math.cos(z*freq*0.07+s+Math.sin(x*freq*0.11+s))*amp;max+=amp;amp*=0.5;freq*=2.1;}return v/max;}
@@ -559,7 +559,7 @@ function getChunkData(cx,cz){const k=chunkKey(cx,cz);if(!chunks.has(k))chunks.se
 function getBlock(wx,wy,wz){if(wy<0||wy>=WORLD_HEIGHT)return 0;const cx=Math.floor(wx/CHUNK_SIZE),cz=Math.floor(wz/CHUNK_SIZE);const lx=((wx%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE,lz=((wz%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE;return getChunkData(cx,cz)[lx+lz*CHUNK_SIZE+wy*CHUNK_SIZE*CHUNK_SIZE];}
 function setBlockLocal(wx,wy,wz,type){if(wy<0||wy>=WORLD_HEIGHT)return;const cx=Math.floor(wx/CHUNK_SIZE),cz=Math.floor(wz/CHUNK_SIZE);const lx=((wx%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE,lz=((wz%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE;getChunkData(cx,cz)[lx+lz*CHUNK_SIZE+wy*CHUNK_SIZE*CHUNK_SIZE]=type;rebuildChunkMesh(cx,cz);if(lx===0)rebuildChunkMesh(cx-1,cz);if(lx===CHUNK_SIZE-1)rebuildChunkMesh(cx+1,cz);if(lz===0)rebuildChunkMesh(cx,cz-1);if(lz===CHUNK_SIZE-1)rebuildChunkMesh(cx,cz+1);}
 function setBlock(wx,wy,wz,type){setBlockLocal(wx,wy,wz,type);wsSend({type:'blockSet',x:wx,y:wy,z:wz,block:type});}
-
+ 
 const FACE_DATA=[{dir:[1,0,0],verts:[[1,0,0],[1,1,0],[1,1,1],[1,0,1]],fi:0},{dir:[-1,0,0],verts:[[0,0,1],[0,1,1],[0,1,0],[0,0,0]],fi:1},{dir:[0,1,0],verts:[[0,1,1],[1,1,1],[1,1,0],[0,1,0]],fi:2},{dir:[0,-1,0],verts:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]],fi:3},{dir:[0,0,1],verts:[[1,0,1],[1,1,1],[0,1,1],[0,0,1]],fi:4},{dir:[0,0,-1],verts:[[0,0,0],[0,1,0],[1,1,0],[1,0,0]],fi:5}];
 function buildChunkMesh(cx,cz){
   // Group faces by material (blockId+face) for efficient rendering
@@ -636,7 +636,7 @@ function rebuildChunkMesh(cx,cz){
   }
   const m=buildChunkMesh(cx,cz);scene.add(m);chunkMeshes.set(k,m);
 }
-
+ 
 // ══ THREE.JS ══
 const canvas=document.getElementById('canvas');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
@@ -659,7 +659,7 @@ scene.add(new THREE.Mesh(skyGeo,skyMat));
 const cloudGroup=new THREE.Group();
 for(let i=0;i<14;i++){const cg=new THREE.Mesh(new THREE.BoxGeometry(8+Math.random()*12,2+Math.random()*2,6+Math.random()*8),new THREE.MeshLambertMaterial({color:0xffffff,transparent:true,opacity:0.88}));cg.position.set((Math.random()-0.5)*160,28+Math.random()*12,(Math.random()-0.5)*160);cloudGroup.add(cg);}
 scene.add(cloudGroup);
-
+ 
 // ── Moon ──
 const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(3,8,8),new THREE.MeshBasicMaterial({color:0xddddcc}));
 scene.add(moonMesh);
@@ -675,7 +675,7 @@ const hemisphereLight=new THREE.HemisphereLight(0x87ceeb,0x3d5e1a,0.7);scene.add
 // Day/night time: 0=noon, 0.5=midnight (in 0..1 cycle)
 let dayTime=0.25; // starts at midday (0=dawn, 0.25=noon, 0.5=dusk, 0.75=midnight)
 const DAY_DURATION=300; // seconds for full day/night cycle
-
+ 
 // ── First-person arm ──
 const armGroup=new THREE.Group();
 const armMesh=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.55,0.18),new THREE.MeshLambertMaterial({color:0xffcc99}));
@@ -689,7 +689,7 @@ armGroup.position.set(0.44,-0.36,-0.5);
 camera.add(armGroup);
 scene.add(camera);
 let armSwingTimer=0,armSwinging=false,armIdleTime=0,lastArmItem=-1;
-
+ 
 // ══ SMART ANIMAL AI ══
 const AI_STATE={IDLE:'idle',GRAZE:'graze',WANDER:'wander',FOLLOW:'follow',FLEE:'flee',PANIC:'panic',CURIOUS:'curious'};
 const SPECIES_TRAITS={
@@ -710,7 +710,7 @@ const MOB_TYPES={
 };
 const MOB_COLORS_VARY={cow:[0x5a3a1a,0x3a2510,0x7a5030,0xf0f0e8],pig:[0xf4a0a0,0xf08080,0xf0b0b0],sheep:[0xdddddd,0xffffff,0xaaaaaa,0x4444aa,0x228822],chicken:[0xffffff,0xeeeeee,0xffddaa],rabbit:[0xc8a882,0xffffff,0x333333,0xaa8866],horse:[0x8b5e3c,0x4a3020,0xd0b080,0x222222,0xffffff]};
 const mobs=[];
-
+ 
 function makeMobMesh(type,col){
   const def=MOB_TYPES[type];const mat=(c)=>new THREE.MeshLambertMaterial({color:c});const g=new THREE.Group();
   const body=new THREE.Mesh(new THREE.BoxGeometry(def.body.w,def.body.h,def.body.d),mat(col));body.castShadow=true;g.add(body);
@@ -731,11 +731,11 @@ function makeMobMesh(type,col){
   g.userData.legs=legs;g.userData.legTimer=Math.random()*Math.PI*2;g.userData.headPivot=headPivot;g.userData.tail=tail;
   return g;
 }
-
+ 
 function groundHeightAt(wx,wz){for(let y=WORLD_HEIGHT-1;y>0;y--){const b=getBlock(Math.floor(wx),y,Math.floor(wz));if(b&&b!==13)return y+1;}return 1;}
-
+ 
 function getFlockInfo(mob,radius){let cx=0,cz=0,count=0;for(const o of mobs){if(o===mob||o.dead||o.type!==mob.type)continue;const dx=o.pos.x-mob.pos.x,dz=o.pos.z-mob.pos.z;if(dx*dx+dz*dz<radius*radius){cx+=o.pos.x;cz+=o.pos.z;count++;}}return count>0?{x:cx/count,z:cz/count,count}:null;}
-
+ 
 function spawnMobAt(type,mx,mz){
   const def=MOB_TYPES[type],traits=SPECIES_TRAITS[type];
   let my=WORLD_HEIGHT-1;for(;my>0;my--){const b=getBlock(Math.floor(mx),my,Math.floor(mz));if(b&&b!==13){my+=1;break;}}
@@ -748,7 +748,7 @@ function spawnMobAt(type,mx,mz){
   const mob={group,type,def,traits,hp:def.hp,maxHp:def.hp,pos:new THREE.Vector3(mx+0.5,my,mz+0.5),vel:new THREE.Vector3(),onGround:false,dead:false,hitTimer:0,state:AI_STATE.IDLE,stateTimer:1+Math.random()*3,wanderDir:Math.random()*Math.PI*2,wanderTimer:0,panicTimer:0,grazeHeadAngle:0,headLookAngle:0,headLookTimer:Math.random()*3,tailWagAngle:0,hopTimer:0,homePos:new THREE.Vector3(mx+0.5,my,mz+0.5),noise:Math.random()*1000};
   mobs.push(mob);return mob;
 }
-
+ 
 function spawnMobs(){
   const herds=[{type:'cow',count:4},{type:'sheep',count:5},{type:'pig',count:3},{type:'chicken',count:4},{type:'horse',count:2},{type:'rabbit',count:3}];
   for(const herd of herds){
@@ -757,7 +757,7 @@ function spawnMobs(){
     for(let i=0;i<herd.count;i++)spawnMobAt(herd.type,hx+(Math.random()-0.5)*8,hz+(Math.random()-0.5)*8);
   }
 }
-
+ 
 function updateMobs(dt){
   for(let i=mobs.length-1;i>=0;i--){
     const mob=mobs[i];if(mob.dead)continue;
@@ -813,7 +813,7 @@ function updateMobs(dt){
     if(mob.state===AI_STATE.FLEE||mob.state===AI_STATE.PANIC){for(const o of mobs){if(o===mob||o.dead||o.type!==mob.type||o.state===AI_STATE.FLEE||o.state===AI_STATE.PANIC)continue;if(mob.pos.distanceTo(o.pos)<traits.flockRadius*0.8&&Math.random()<0.02){o.state=AI_STATE.FLEE;o.stateTimer=1.5+Math.random()*2;}}}
   }
 }
-
+ 
 function tryHitMob(){
   const rayDir=new THREE.Vector3(0,0,-1);rayDir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));
   for(const mob of mobs){
@@ -831,7 +831,7 @@ function tryHitMob(){
   }
   return false;
 }
-
+ 
 function tryHitPlayer(){
   if(!myId)return false;
   const rayDir=new THREE.Vector3(0,0,-1);rayDir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));
@@ -848,18 +848,18 @@ function tryHitPlayer(){
   }
   return false;
 }
-
+ 
 // ══ HOSTILE MOBS ══
 const hostileMobs=[];
 const arrows=[];
 let hostileSpawnTimer=5;
-
+ 
 const HOSTILE_TYPES={
   zombie:{name:'🧟 Zombie',color:0x4a8c4a,eyeColor:0xff2200,hp:10,speed:2.2,damage:1,attackRange:1.5,attackCD:1.2,detectionRange:18,drops:[]},
   skeleton:{name:'💀 Skeleton',color:0xddddcc,eyeColor:0x000000,hp:8,speed:2.8,damage:1,attackRange:16,attackCD:2.0,detectionRange:20,drops:[]},
   creeper:{name:'💚 Creeper',color:0x3a9a3a,eyeColor:0x111111,hp:6,speed:3.0,damage:0,attackRange:2.5,attackCD:999,detectionRange:15,drops:[]},
 };
-
+ 
 function makeHostileMesh(type){
   const def=HOSTILE_TYPES[type];
   const g=new THREE.Group();
@@ -893,7 +893,7 @@ function makeHostileMesh(type){
   g.userData.legTimer=Math.random()*Math.PI*2;
   return g;
 }
-
+ 
 function spawnHostileMob(type){
   const angle=Math.random()*Math.PI*2, dist=15+Math.random()*25;
   const mx=player.pos.x+Math.cos(angle)*dist, mz=player.pos.z+Math.sin(angle)*dist;
@@ -906,13 +906,13 @@ function spawnHostileMob(type){
   scene.add(mesh);
   hostileMobs.push({mesh,type,def,hp:def.hp,maxHp:def.hp,pos:new THREE.Vector3(mx,my,mz),vel:new THREE.Vector3(),onGround:false,dead:false,attackTimer:0,hitTimer:0,creeperFuseTimer:-1,creeperHissing:false,wanderDir:Math.random()*Math.PI*2,wanderTimer:2});
 }
-
+ 
 function isNight(){
   // sun is below horizon when brightness < 0.1
   const sunA=dayTime*Math.PI*2-Math.PI/2;
   return Math.sin(sunA)<-0.1;
 }
-
+ 
 function updateHostileMobs(dt){
   for(let i=hostileMobs.length-1;i>=0;i--){
     const mob=hostileMobs[i];
@@ -921,11 +921,11 @@ function updateHostileMobs(dt){
     const dx=player.pos.x-mob.pos.x, dz=player.pos.z-mob.pos.z;
     const distToPlayer=Math.sqrt(dx*dx+dz*dz);
     const detected=distToPlayer<def.detectionRange;
-
+ 
     // Gravity
     mob.vel.y-=20*dt;
     let moveX=0,moveZ=0;
-
+ 
     if(mob.type==='creeper'){
       if(detected){
         const dir=Math.atan2(dz,dx);
@@ -1002,7 +1002,7 @@ function updateHostileMobs(dt){
         moveZ=Math.sin(mob.wanderDir)*def.speed*0.3*dt;
       }
     }
-
+ 
     // Move with simple collision
     const hW=0.3;
     function hCanMove(ax,d){const np=mob.pos.clone();np[ax]+=d;for(let by=Math.floor(np.y);by<=Math.floor(np.y+1.6);by++)for(let bx=Math.floor(np.x-hW);bx<=Math.floor(np.x+hW);bx++)for(let bz=Math.floor(np.z-hW);bz<=Math.floor(np.z+hW);bz++){const bl=getBlock(bx,by,bz);if(bl&&bl!==0&&bl!==13)return false;}return true;}
@@ -1014,7 +1014,7 @@ function updateHostileMobs(dt){
     // Jump over walls
     if(mob.onGround&&(moveX!==0||moveZ!==0)){const fb=getBlock(Math.floor(mob.pos.x+Math.cos(mob.wanderDir)*0.5),Math.floor(mob.pos.y),Math.floor(mob.pos.z+Math.sin(mob.wanderDir)*0.5));if(fb&&fb!==0&&fb!==13)mob.vel.y=6;}
     if(mob.pos.y<-5){mob.pos.y=groundHeightAt(mob.pos.x,mob.pos.z)+1;mob.vel.y=0;}
-
+ 
     // Update mesh
     mob.mesh.position.set(mob.pos.x,mob.pos.y+0.6,mob.pos.z);
     if(moveX!==0||moveZ!==0){
@@ -1026,10 +1026,10 @@ function updateHostileMobs(dt){
     mob.mesh.userData.legTimer+=dt*(detected?def.speed:1)*2;
     const lt=mob.mesh.userData.legTimer;
     mob.mesh.children.forEach((c,ci)=>{if(ci>=6&&ci<=7)c.rotation.x=Math.sin(lt+(ci%2)*Math.PI)*0.5;});
-
+ 
     // Hit flash
     if(mob.hitTimer>0){mob.hitTimer-=dt;mob.mesh.children.forEach(c=>{if(c.material&&c.material.emissive)c.material.emissive.setHex(mob.hitTimer>0?0xaa1111:0x000000);});}
-
+ 
     // Burns in daylight (not night)
     if(!isNight()&&mob.type!=='creeper'){
       mob.hp-=dt*0.5;
@@ -1038,7 +1038,7 @@ function updateHostileMobs(dt){
     // Despawn if very far
     if(mob.pos.distanceTo(player.pos)>100){scene.remove(mob.mesh);mob.dead=true;hostileMobs.splice(i,1);}
   }
-
+ 
   // Update arrows
   for(let i=arrows.length-1;i>=0;i--){
     const a=arrows[i];
@@ -1057,7 +1057,7 @@ function updateHostileMobs(dt){
     if(a.life<=0){scene.remove(a.mesh);arrows.splice(i,1);}
   }
 }
-
+ 
 function tryHitHostile(){
   const rayDir=new THREE.Vector3(0,0,-1);rayDir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));
   for(const mob of hostileMobs){
@@ -1081,11 +1081,11 @@ function tryHitHostile(){
   }
   return false;
 }
-
+ 
 // ══ OTHER PLAYERS ══
 const otherPlayers=new Map(); // id -> {mesh, nameTag, x,y,z,yaw,name}
 const PLAYER_COLORS=[0x4a90d9,0xe05c5c,0x5cb85c,0xf0ad4e,0x9b59b6,0x1abc9c,0xe74c3c,0x3498db];
-
+ 
 function makePlayerMesh(id){
   const color=PLAYER_COLORS[id%PLAYER_COLORS.length];
   const g=new THREE.Group();
@@ -1107,7 +1107,7 @@ function makePlayerMesh(id){
   g.castShadow=true;
   return g;
 }
-
+ 
 function addOtherPlayer(p){
   if(otherPlayers.has(p.id))return;
   const mesh=makePlayerMesh(p.id);
@@ -1163,11 +1163,11 @@ function updatePlayerList(){
   for(const[id,op]of otherPlayers) html+=`<div>👤 ${op.name}</div>`;
   body.innerHTML=html;
 }
-
+ 
 // ══ WEBSOCKET ══
 let ws=null,myId=null,gameStarted=false;
 function wsSend(data){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data));}
-
+ 
 function connectWS(url,playerName){
   const status=document.getElementById('conn-status');
   status.textContent='Connecting...';
@@ -1249,7 +1249,7 @@ function connectWS(url,playerName){
   ws.onclose=()=>{if(gameStarted)addChatMsg('⚠️','Disconnected from server','#f87171');};
   ws.onerror=()=>{status.textContent='Connection failed. Check the server URL.';};
 }
-
+ 
 function addChatMsg(name,text,color='#fff'){
   const log=document.getElementById('chat-log');
   const div=document.createElement('div');div.className='chat-msg';
@@ -1258,7 +1258,7 @@ function addChatMsg(name,text,color='#fff'){
   // Auto-hide old messages
   while(log.children.length>20)log.removeChild(log.firstChild);
 }
-
+ 
 // ══ PLAYER ══
 const player={pos:new THREE.Vector3(0,20,0),vel:new THREE.Vector3(),onGround:false,height:1.7,width:0.4};
 function findAndSetSpawn(){
@@ -1266,13 +1266,13 @@ function findAndSetSpawn(){
     const b=getBlock(x,y,z);if(b&&b!==13){player.pos.set(x+0.5,y+3,z+0.5);return;}
   }
 }
-
+ 
 // ══ NETHER DIMENSION ══
 let inNether=false;
 const netherChunks=new Map();
 const netherMeshes=new Map();
 const NETHER_HEIGHT=24;
-
+ 
 // Nether world generation
 function generateNetherChunk(cx,cz){
   const data=new Uint8Array(CHUNK_SIZE*CHUNK_SIZE*NETHER_HEIGHT);
@@ -1314,20 +1314,20 @@ function generateNetherChunk(cx,cz){
   }
   return data;
 }
-
+ 
 function getNetherChunkData(cx,cz){
   const k=chunkKey(cx,cz);
   if(!netherChunks.has(k))netherChunks.set(k,generateNetherChunk(cx,cz));
   return netherChunks.get(k);
 }
-
+ 
 function getNetherBlock(wx,wy,wz){
   if(wy<0||wy>=NETHER_HEIGHT)return 0;
   const cx=Math.floor(wx/CHUNK_SIZE),cz=Math.floor(wz/CHUNK_SIZE);
   const lx=((wx%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE,lz=((wz%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE;
   return getNetherChunkData(cx,cz)[lx+lz*CHUNK_SIZE+wy*CHUNK_SIZE*CHUNK_SIZE];
 }
-
+ 
 function buildNetherChunkMesh(cx,cz){
   const faceGroups=new Map();
   const data=getNetherChunkData(cx,cz);
@@ -1367,18 +1367,18 @@ function buildNetherChunkMesh(cx,cz){
   mesh.position.set(cx*CHUNK_SIZE,0,cz*CHUNK_SIZE);
   return mesh;
 }
-
+ 
 function rebuildNetherMesh(cx,cz){
   const k=chunkKey(cx,cz);
   if(netherMeshes.has(k)){scene.remove(netherMeshes.get(k));netherMeshes.get(k).geometry.dispose();}
   const m=buildNetherChunkMesh(cx,cz);scene.add(m);netherMeshes.set(k,m);
 }
-
+ 
 // Nether portal visual (purple swirling plane)
 const portalMat=new THREE.MeshBasicMaterial({color:0x6600cc,transparent:true,opacity:0.75,side:THREE.DoubleSide});
 const portalMeshes=[]; // portal frame visual meshes in overworld
 let spawnPortalBuilt=false;
-
+ 
 function buildSpawnPortal(){
   if(spawnPortalBuilt)return;spawnPortalBuilt=true;
   // Find ground height near spawn
@@ -1407,18 +1407,18 @@ function buildSpawnPortal(){
   for(const k of set){const[cx,cz]=k.split(',').map(Number);rebuildChunkMesh(cx,cz);}
   console.log('Portal built at',px,sy,pz);
 }
-
+ 
 // Overworld portal position (for return teleport)
 const OVERWORLD_PORTAL_POS={x:1.5,y:15,z:0.5};
 const NETHER_PORTAL_POS={x:4.5,y:8,z:2.5};
-
+ 
 function setNetherBlock(wx,wy,wz,b){
   if(wy<0||wy>=NETHER_HEIGHT)return;
   const cx=Math.floor(wx/CHUNK_SIZE),cz=Math.floor(wz/CHUNK_SIZE);
   const lx=((wx%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE,lz=((wz%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE;
   getNetherChunkData(cx,cz)[lx+lz*CHUNK_SIZE+wy*CHUNK_SIZE*CHUNK_SIZE]=b;
 }
-
+ 
 function buildNetherPortalAt(wx,wy,wz){
   // Clear space
   for(let x=0;x<4;x++)for(let y=0;y<6;y++)for(let z=-1;z<=1;z++)setNetherBlock(wx+x,wy+y,wz+z,0);
@@ -1434,7 +1434,7 @@ function buildNetherPortalAt(wx,wy,wz){
     if(!seen.has(k)){seen.add(k);rebuildNetherMesh(Math.floor(x/CHUNK_SIZE),Math.floor(z/CHUNK_SIZE));}
   }
 }
-
+ 
 function findNetherFloor(wx,wz){
   for(let y=NETHER_HEIGHT-4;y>0;y--){
     const b=getNetherBlock(wx,y,wz);
@@ -1442,46 +1442,65 @@ function findNetherFloor(wx,wz){
   }
   return 4;
 }
-
+ 
 function enterNether(){
   inNether=true;
-  // Hide overworld
+  // Hide overworld meshes
   for(const[,m]of chunkMeshes)m.visible=false;
-  // Pick a fixed nether spawn point
+  // Hide overworld animals
+  for(const mob of mobs){mob.group.visible=false;}
+  for(const mob of hostileMobs){mob.mesh.visible=false;}
+ 
   const nx=0,nz=5;
-  // Generate nether chunks around spawn first
+  // Generate chunks first
   for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++){
     getNetherChunkData(Math.floor(nx/CHUNK_SIZE)+dx,Math.floor(nz/CHUNK_SIZE)+dz);
   }
-  // Find floor and place portal there
-  const ny=findNetherFloor(nx+1,nz);
+  // Find flat floor spot — scan for first solid layer above lava
+  let ny=4;
+  for(let y=4;y<NETHER_HEIGHT-5;y++){
+    const b=getNetherBlock(nx+1,y,nz);
+    if(b===0){ny=y;break;} // first air above ground
+  }
+  ny=Math.max(4,ny); // ensure above lava
+  // Clear a 4x6 area at the portal site so nothing blocks it
+  for(let x=-1;x<=5;x++)for(let y=ny;y<=ny+6;y++)for(let z=-2;z<=4;z++)setNetherBlock(nx+x,y,nz+z,0);
+  // Ensure solid floor under portal
+  for(let x=0;x<=3;x++)for(let z=-1;z<=1;z++)setNetherBlock(nx+x,ny-1,nz+z,202);
+  // Build portal frame
   buildNetherPortalAt(nx,ny,nz);
-  // Spawn player IN FRONT of portal (not inside it)
-  player.pos.set(nx+1.5,ny+2,nz+3);
+  // Spawn player in front
+  player.pos.set(nx+1.5,ny+1,nz+4);
   player.vel.set(0,0,0);
   // Build meshes
   for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++){
     rebuildNetherMesh(Math.floor(nx/CHUNK_SIZE)+dx,Math.floor(nz/CHUNK_SIZE)+dz);
   }
-  showMsg('🔥 Welcome to the Nether! Walk back into the portal to return.',5000);
+  // Spawn nether mobs
+  spawnNetherMobs();
+  showMsg('🔥 Welcome to the Nether! Walk into the portal to return.',5000);
   portalCooldown=3;
 }
-
+ 
 function exitNether(){
   inNether=false;
   for(const[,m]of netherMeshes)m.visible=false;
   for(const[,m]of chunkMeshes)m.visible=true;
-  // Spawn in front of the overworld portal (portal is at x=0-3, z=0)
+  // Show overworld mobs again
+  for(const mob of mobs)mob.group.visible=true;
+  for(const mob of hostileMobs)mob.mesh.visible=true;
+  // Remove nether mobs
+  for(const mob of netherMobsList){scene.remove(mob.mesh);} netherMobsList.length=0;
   let sy=10;for(let y=WORLD_HEIGHT-1;y>0;y--){const b=getBlock(1,y,0);if(b&&b!==0&&b!==13){sy=y+1;break;}}
-  player.pos.set(1.5,sy+2,3); // 3 blocks in front of portal
+  player.pos.set(1.5,sy+2,3);
   player.vel.set(0,0,0);
   showMsg('🌍 You returned to the Overworld!',3000);
   portalCooldown=3;
 }
-
+ 
 // Check if player is in a portal block
 let portalTimer=0, portalCooldown=0;
-
+ 
 function checkPortalTeleport(dt){
   // Don't check while on cooldown
   if(portalCooldown>0){portalCooldown-=dt;return;}
@@ -1508,11 +1527,11 @@ function checkPortalTeleport(dt){
     portalTimer=Math.max(0,portalTimer-dt*2);
   }
 }
-
+ 
 // ══ INPUT ══
 const keys={};let mouseButtons={},yaw=0,pitch=0,pointerLocked=false,mouseDragging=false,lastMX=0,lastMY=0;
 let chatOpen=false;
-
+ 
 document.addEventListener('keydown',e=>{
   if(chatOpen){
     if(e.code==='Escape'){closeChatInput();}
@@ -1547,7 +1566,7 @@ document.addEventListener('mouseup',e=>{mouseButtons[e.button]=false;mouseDraggi
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('wheel',e=>{if(gameStarted&&!chatOpen)setSlot((selectedSlot+(e.deltaY>0?1:-1)+9)%9);});
 document.getElementById('click-overlay').addEventListener('click',()=>{if(gameStarted)canvas.requestPointerLock&&canvas.requestPointerLock();});
-
+ 
 function openChatInput(){
   chatOpen=true;
   if(pointerLocked)document.exitPointerLock&&document.exitPointerLock();
@@ -1569,7 +1588,7 @@ document.getElementById('chat-input').addEventListener('keydown',e=>{
   }
   if(e.code==='Escape'){closeChatInput();}
 });
-
+ 
 function raycast(maxDist=6){const dir=new THREE.Vector3(0,0,-1);dir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));const step=0.05;let px=player.pos.x,py=player.pos.y,pz=player.pos.z,lpx=px,lpy=py,lpz=pz;for(let d=0;d<maxDist;d+=step){px+=dir.x*step;py+=dir.y*step;pz+=dir.z*step;const bx=Math.floor(px),by=Math.floor(py),bz=Math.floor(pz),b=getBlockCurrent(bx,by,bz);if(b&&b!==13&&b!==201)return{hit:true,block:b,x:bx,y:by,z:bz,px:Math.floor(lpx),py:Math.floor(lpy),pz:Math.floor(lpz)};lpx=px;lpy=py;lpz=pz;}return{hit:false};}
 const hlMesh=new THREE.Mesh(new THREE.BoxGeometry(1.02,1.02,1.02),new THREE.MeshBasicMaterial({color:0x000000,wireframe:true,opacity:0.45,transparent:true}));
 hlMesh.visible=false;scene.add(hlMesh);
@@ -1583,12 +1602,12 @@ function tryMoveAxis(axis,delta){const p=player.pos.clone();p[axis]+=delta;for(l
 const particles=[];
 function spawnParticles(wx,wy,wz,color){for(let i=0;i<8;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.12),new THREE.MeshLambertMaterial({color}));m.position.set(wx+0.5+Math.random()-0.5,wy+0.5+Math.random()-0.5,wz+0.5+Math.random()-0.5);m.userData.vel=new THREE.Vector3((Math.random()-0.5)*5,(Math.random()+0.5)*5,(Math.random()-0.5)*5);m.userData.life=1.0;scene.add(m);particles.push(m);}}
 function showMsg(txt,ms=2000){const el=document.getElementById('msg');el.textContent=txt;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',ms);}
-
+ 
 // ══ MAIN LOOP ══
 const clock=new THREE.Clock();
 let lastCK='',placeCD=0,breakTimer=0,breakTarget=null,highestY=0,clickHeldTimer=0,sunAngle=0;
 let moveSendTimer=0,animating=false,mobSpawnTimer=3;
-
+ 
 function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),0.05);
@@ -1661,14 +1680,14 @@ function animate(){
       }
     }
   }
-
+ 
   if(!pointerLocked&&!uiOpen&&!chatOpen){
     if(keys['ArrowLeft'])yaw+=1.5*dt;if(keys['ArrowRight'])yaw-=1.5*dt;
     if(keys['ArrowUp'])pitch=Math.max(-Math.PI/2+0.01,pitch-1.2*dt);
     if(keys['ArrowDown'])pitch=Math.min(Math.PI/2-0.01,pitch+1.2*dt);
   }
   camera.position.copy(player.pos);camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
-
+ 
   if(!uiOpen&&!chatOpen){
     const spd=keys['ShiftLeft']||keys['ShiftRight']?9:5.5;
     const fwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),move=new THREE.Vector3();
@@ -1682,17 +1701,17 @@ function animate(){
     tryMoveAxis('z',move.z+player.vel.z*dt);
     if(player.pos.y<-20)showDeathScreen();
   }
-
+ 
   // Send position to server ~20 times/sec
   moveSendTimer+=dt;
   if(moveSendTimer>=0.05){
     moveSendTimer=0;
     wsSend({type:'move',x:player.pos.x,y:player.pos.y,z:player.pos.z,yaw,pitch});
   }
-
+ 
   // Portal teleport check
   checkPortalTeleport(dt);
-
+ 
   // Chunk loading (overworld or nether)
   const pcx=Math.floor(player.pos.x/CHUNK_SIZE),pcz=Math.floor(player.pos.z/CHUNK_SIZE),ck=`${pcx},${pcz}_${inNether?'n':'o'}`;
   if(ck!==lastCK){
@@ -1706,12 +1725,12 @@ function animate(){
     if(inNether){for(const[key,mesh]of netherMeshes){const[kx,kz]=key.split(',').map(Number);if(Math.abs(kx-pcx)>RENDER_DIST+1||Math.abs(kz-pcz)>RENDER_DIST+1){scene.remove(mesh);netherMeshes.delete(key);}}}
     else{for(const[key,mesh]of chunkMeshes){const[kx,kz]=key.split(',').map(Number);if(Math.abs(kx-pcx)>RENDER_DIST+1||Math.abs(kz-pcz)>RENDER_DIST+1){scene.remove(mesh);mesh.geometry.dispose();chunkMeshes.delete(key);}}}
   }
-
+ 
   const rc=raycast();hlMesh.visible=rc.hit;if(rc.hit)hlMesh.position.set(rc.x+0.5,rc.y+0.5,rc.z+0.5);
-
+ 
   const bEl=document.getElementById('break-progress'),bBar=document.getElementById('break-bar');
   placeCD=Math.max(0,placeCD-dt);
-
+ 
   if(mouseButtons[0]&&!uiOpen&&!chatOpen){
     clickHeldTimer+=dt;
     if(rc.hit&&rc.block!==13){      const bt=`${rc.x},${rc.y},${rc.z}`;if(breakTarget!==bt){breakTarget=bt;breakTimer=0;}
@@ -1723,7 +1742,7 @@ function animate(){
       }
     } else {bEl.style.display='none';breakTarget=null;breakTimer=0;}
   } else {if(clickHeldTimer>0&&clickHeldTimer<0.2){if(!tryHitPlayer()&&!tryHitHostile())tryHitMob();}clickHeldTimer=0;bEl.style.display='none';breakTarget=null;breakTimer=0;}
-
+ 
   if(mouseButtons[2]&&rc.hit&&placeCD<=0&&!uiOpen&&!chatOpen){
     const slot=hotbar[selectedSlot];
     if(slot.type&&slot.count>0&&BLOCK_COLORS[slot.type]){
@@ -1733,13 +1752,13 @@ function animate(){
       }
     } else if(slot.type){showMsg("Can't place that!");placeCD=0.3;}
   }
-
+ 
   // Update animals
   updateMobs(dt);
-
+ 
   // Update hostile mobs
   updateHostileMobs(dt);
-
+ 
   // Spawn animals around player dynamically
   mobSpawnTimer-=dt;
   if(mobSpawnTimer<=0){
@@ -1760,18 +1779,18 @@ function animate(){
       }
     }
   }
-
+ 
   // Particles
   for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.userData.life-=dt*2;p.userData.vel.y-=22*dt;p.position.addScaledVector(p.userData.vel,dt);p.material.opacity=p.userData.life;p.material.transparent=true;if(p.userData.life<=0){scene.remove(p);p.geometry.dispose();particles.splice(i,1);}}
-
+ 
   updateNameTags();
-
+ 
   // ── First-person arm & item animation ──
   const curSlot=hotbar[selectedSlot];
   const isSprinting=keys['ShiftLeft']||keys['ShiftRight'];
   const isWalking=(keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD'])&&player.onGround;
   armIdleTime+=dt;
-
+ 
   // Update item in hand when slot changes
   if(curSlot.type!==lastArmItem){
     lastArmItem=curSlot.type;
@@ -1805,12 +1824,12 @@ function animate(){
       itemInHand.rotation.set(0,0,0);
     }
   }
-
+ 
   // Swing on left click
   if(mouseButtons[0]&&!uiOpen&&!chatOpen){
     if(!armSwinging){armSwinging=true;armSwingTimer=0;}
   }
-
+ 
   if(armSwinging){
     armSwingTimer+=dt*10;
     // Quick downward swing then back up
@@ -1841,16 +1860,16 @@ function animate(){
     armGroup.rotation.z+=(0-armGroup.rotation.z)*dt*8;
     armGroup.position.set(0.44,-0.36+breathe,-0.5);
   }
-
+ 
   const biomeNames={plains:'🌾 Plains',mountain:'⛰️ Mountains',desert:'🏜️ Desert',jungle:'🌴 Jungle',snow:'❄️ Snow'};
   const curBiome=getBiome(Math.floor(player.pos.x),Math.floor(player.pos.z));
   const bl=document.getElementById('biome-label');if(bl)bl.style.display='none';
   const nightLabel=isNight()?'🌙 Night':'☀️ Day';
   const st=document.getElementById('stats');if(st)st.innerHTML=`X:${player.pos.x.toFixed(1)} Y:${player.pos.y.toFixed(1)} Z:${player.pos.z.toFixed(1)}<br>${rc.hit?(BLOCK_NAMES[rc.block]||'Block'):'—'} | ${biomeNames[curBiome]||curBiome} | ${nightLabel} | T=Chat`;
-
+ 
   renderer.render(scene,camera);
 }
-
+ 
 async function startGame(){
   const btn=document.getElementById('start-btn');
   if(btn) btn.textContent='Loading world...';
@@ -1873,7 +1892,7 @@ async function startGame(){
   canvas.requestPointerLock&&canvas.requestPointerLock();
   if(!animating){animating=true;animate();}
 }
-
+ 
 document.getElementById('start-btn').addEventListener('click',async()=>{
   const nameInput=document.getElementById('name-input').value.trim()||`Player${Math.floor(Math.random()*999)}`;
   const serverInput=document.getElementById('server-input').value.trim();
@@ -1883,7 +1902,7 @@ document.getElementById('start-btn').addEventListener('click',async()=>{
   btn.disabled=true;
   connectWS(wsUrl,nameInput);
 });
-
+ 
 window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
 </script>
 </body>

@@ -1564,9 +1564,13 @@ document.getElementById('chat-input').addEventListener('keydown',e=>{
   if(e.code==='Escape'){closeChatInput();}
 });
  
-function raycast(maxDist=6){const dir=new THREE.Vector3(0,0,-1);dir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));const step=0.05;let px=player.pos.x,py=player.pos.y,pz=player.pos.z,lpx=px,lpy=py,lpz=pz;for(let d=0;d<maxDist;d+=step){px+=dir.x*step;py+=dir.y*step;pz+=dir.z*step;const bx=Math.floor(px),by=Math.floor(py),bz=Math.floor(pz),b=getBlock(bx,by,bz);if(b&&b!==13)return{hit:true,block:b,x:bx,y:by,z:bz,px:Math.floor(lpx),py:Math.floor(lpy),pz:Math.floor(lpz)};lpx=px;lpy=py;lpz=pz;}return{hit:false};}
+function raycast(maxDist=6){const dir=new THREE.Vector3(0,0,-1);dir.applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ'));const step=0.05;let px=player.pos.x,py=player.pos.y,pz=player.pos.z,lpx=px,lpy=py,lpz=pz;for(let d=0;d<maxDist;d+=step){px+=dir.x*step;py+=dir.y*step;pz+=dir.z*step;const bx=Math.floor(px),by=Math.floor(py),bz=Math.floor(pz),b=getBlockCurrent(bx,by,bz);if(b&&b!==13&&b!==201)return{hit:true,block:b,x:bx,y:by,z:bz,px:Math.floor(lpx),py:Math.floor(lpy),pz:Math.floor(lpz)};lpx=px;lpy=py;lpz=pz;}return{hit:false};}
 const hlMesh=new THREE.Mesh(new THREE.BoxGeometry(1.02,1.02,1.02),new THREE.MeshBasicMaterial({color:0x000000,wireframe:true,opacity:0.45,transparent:true}));
 hlMesh.visible=false;scene.add(hlMesh);
+function setBlockCurrent(wx,wy,wz,type){
+  if(inNether){setNetherBlock(wx,wy,wz,type);rebuildNetherMesh(Math.floor(wx/CHUNK_SIZE),Math.floor(wz/CHUNK_SIZE));}
+  else setBlock(wx,wy,wz,type);
+}
 function isSolid(b){return b&&b!==0&&b!==13&&b!==8&&b!==15&&b!==21&&b!==201&&b!==204;}
 function getBlockCurrent(wx,wy,wz){return inNether?getNetherBlock(wx,wy,wz):getBlock(wx,wy,wz);}
 function tryMoveAxis(axis,delta){const p=player.pos.clone();p[axis]+=delta;for(let bx=Math.floor(p.x-player.width/2);bx<=Math.floor(p.x+player.width/2);bx++)for(let by=Math.floor(p.y-player.height);by<=Math.floor(p.y+0.2);by++)for(let bz=Math.floor(p.z-player.width/2);bz<=Math.floor(p.z+player.width/2);bz++)if(isSolid(getBlockCurrent(bx,by,bz)))return false;player.pos[axis]=p[axis];return true;}
@@ -1709,7 +1713,7 @@ function animate(){
       if(breakTimer>=(BREAK_TIMES[rc.block]||1)){
         const drop=DROPS[rc.block];if(drop)addToInventory(drop,1);
         spawnParticles(rc.x,rc.y,rc.z,parseInt((BLOCK_COLORS[rc.block]?BLOCK_COLORS[rc.block][2]:'#888888').slice(1),16));
-        setBlock(rc.x,rc.y,rc.z,0);breakTarget=null;breakTimer=0;bEl.style.display='none';
+        setBlockCurrent(rc.x,rc.y,rc.z,0);breakTarget=null;breakTimer=0;bEl.style.display='none';
       }
     } else {bEl.style.display='none';breakTarget=null;breakTimer=0;}
   } else {if(clickHeldTimer>0&&clickHeldTimer<0.2){if(!tryHitPlayer()&&!tryHitHostile())tryHitMob();}clickHeldTimer=0;bEl.style.display='none';breakTarget=null;breakTimer=0;}
@@ -1856,6 +1860,9 @@ async function startGame(){
   renderHotbar();renderHealth();updatePlayerList();
   spawnMobs();
   buildSpawnPortal();
+  // Make sure nether is hidden at start
+  for(const[,m]of netherMeshes)m.visible=false;
+  inNether=false;
   gameStarted=true;
   canvas.requestPointerLock&&canvas.requestPointerLock();
   if(!animating){animating=true;animate();}
